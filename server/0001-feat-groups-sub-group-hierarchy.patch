@@ -1,0 +1,593 @@
+From 61e7f3b96fc784955a50a0abe83891bef7d17afc Mon Sep 17 00:00:00 2001
+From: James Nohilly <184946269+jamesnohilly@users.noreply.github.com>
+Date: Mon, 25 May 2026 13:09:14 +0100
+Subject: [PATCH] feat(server): add sub-group hierarchy support
+
+---
+ server/repository/booking-repository.go       |  12 +-
+ server/repository/group-repository.go         |  89 +++++++----
+ .../repository/test/group-repository_test.go  | 101 +++++++++++++
+ server/router/group-router.go                 |  31 +++-
+ server/router/routes.go                       |   3 +-
+ server/router/test/group-router_test.go       | 143 ++++++++++++++++++
+ 6 files changed, 348 insertions(+), 31 deletions(-)
+
+diff --git a/server/repository/booking-repository.go b/server/repository/booking-repository.go
+index 9146a6d4..faee062a 100644
+--- a/server/repository/booking-repository.go
++++ b/server/repository/booking-repository.go
+@@ -774,7 +774,11 @@ func (r *BookingRepository) GetBookingsRequiringApproval(approverUserID string)
+ 		"WHERE bookings.approved = false AND "+
+ 		"bookings.leave_time >= NOW() - INTERVAL '24 hours' AND "+
+ 		"bookings.space_id IN (SELECT space_id FROM spaces_approvers WHERE spaces_approvers.space_id = bookings.space_id AND group_id IN ("+
+-		"SELECT group_id FROM users_groups WHERE user_id = $1"+
++		"WITH RECURSIVE group_ancestors AS ("+
++		"SELECT g.id, g.parent_id FROM groups g INNER JOIN users_groups ug ON g.id = ug.group_id WHERE ug.user_id = $1 "+
++		"UNION ALL "+
++		"SELECT g.id, g.parent_id FROM groups g INNER JOIN group_ancestors ga ON g.id = ga.parent_id"+
++		") SELECT id FROM group_ancestors"+
+ 		")) "+
+ 		"ORDER BY bookings.enter_time ASC", approverUserID)
+ 	if err != nil {
+@@ -800,7 +804,11 @@ func (r *BookingRepository) GetBookingsCountRequiringApproval(approverUserID str
+ 		"WHERE approved = false AND "+
+ 		"leave_time >= NOW() - INTERVAL '24 hours' AND "+
+ 		"space_id IN (SELECT space_id FROM spaces_approvers WHERE spaces_approvers.space_id = bookings.space_id AND group_id IN ("+
+-		"SELECT group_id FROM users_groups WHERE user_id = $1"+
++		"WITH RECURSIVE group_ancestors AS ("+
++		"SELECT g.id, g.parent_id FROM groups g INNER JOIN users_groups ug ON g.id = ug.group_id WHERE ug.user_id = $1 "+
++		"UNION ALL "+
++		"SELECT g.id, g.parent_id FROM groups g INNER JOIN group_ancestors ga ON g.id = ga.parent_id"+
++		") SELECT id FROM group_ancestors"+
+ 		"))", approverUserID).Scan(&count)
+ 	if err != nil {
+ 		return 0, err
+diff --git a/server/repository/group-repository.go b/server/repository/group-repository.go
+index 7b573658..f00e7460 100644
+--- a/server/repository/group-repository.go
++++ b/server/repository/group-repository.go
+@@ -15,6 +15,7 @@ type Group struct {
+ 	ID             string
+ 	OrganizationID string
+ 	Name           string
++	ParentID       string
+ }
+ 
+ var groupRepository *GroupRepository
+@@ -27,6 +28,7 @@ func GetGroupRepository() *GroupRepository {
+ 			"id uuid DEFAULT uuid_generate_v4(), " +
+ 			"organization_id uuid NOT NULL, " +
+ 			"name VARCHAR NOT NULL, " +
++			"parent_id uuid, " +
+ 			"PRIMARY KEY (id))"); err != nil {
+ 			panic(err)
+ 		}
+@@ -47,10 +49,10 @@ func (r *GroupRepository) RunSchemaUpgrade(curVersion, targetVersion int) {
+ func (r *GroupRepository) Create(e *Group) error {
+ 	var id string
+ 	err := GetDatabase().DB().QueryRow("INSERT INTO groups "+
+-		"(organization_id, name) "+
+-		"VALUES ($1, $2) "+
++		"(organization_id, name, parent_id) "+
++		"VALUES ($1, $2, NULLIF($3, '')::uuid) "+
+ 		"RETURNING id",
+-		e.OrganizationID, e.Name).Scan(&id)
++		e.OrganizationID, e.Name, e.ParentID).Scan(&id)
+ 	if err != nil {
+ 		return err
+ 	}
+@@ -58,13 +60,24 @@ func (r *GroupRepository) Create(e *Group) error {
+ 	return nil
+ }
+ 
++func (r *GroupRepository) scanGroup(e *Group, scan func(...interface{}) error) error {
++	var parentID *string
++	if err := scan(&e.ID, &e.OrganizationID, &e.Name, &parentID); err != nil {
++		return err
++	}
++	if parentID != nil {
++		e.ParentID = *parentID
++	}
++	return nil
++}
++
+ func (r *GroupRepository) GetOne(id string) (*Group, error) {
+ 	e := &Group{}
+-	err := GetDatabase().DB().QueryRow("SELECT id, organization_id, name "+
++	row := GetDatabase().DB().QueryRow("SELECT id, organization_id, name, parent_id "+
+ 		"FROM groups "+
+ 		"WHERE id = $1",
+-		id).Scan(&e.ID, &e.OrganizationID, &e.Name)
+-	if err != nil {
++		id)
++	if err := r.scanGroup(e, row.Scan); err != nil {
+ 		return nil, err
+ 	}
+ 	return e, nil
+@@ -72,7 +85,7 @@ func (r *GroupRepository) GetOne(id string) (*Group, error) {
+ 
+ func (r *GroupRepository) GetAll(organizationID string) ([]*Group, error) {
+ 	var result []*Group
+-	rows, err := GetDatabase().DB().Query("SELECT id, organization_id, name "+
++	rows, err := GetDatabase().DB().Query("SELECT id, organization_id, name, parent_id "+
+ 		"FROM groups "+
+ 		"WHERE organization_id = $1 "+
+ 		"ORDER BY name",
+@@ -83,8 +96,7 @@ func (r *GroupRepository) GetAll(organizationID string) ([]*Group, error) {
+ 	defer rows.Close()
+ 	for rows.Next() {
+ 		e := &Group{}
+-		err = rows.Scan(&e.ID, &e.OrganizationID, &e.Name)
+-		if err != nil {
++		if err = r.scanGroup(e, rows.Scan); err != nil {
+ 			return nil, err
+ 		}
+ 		result = append(result, e)
+@@ -94,7 +106,7 @@ func (r *GroupRepository) GetAll(organizationID string) ([]*Group, error) {
+ 
+ func (r *GroupRepository) GetAllByIDs(groupIDs []string) ([]*Group, error) {
+ 	var result []*Group
+-	rows, err := GetDatabase().DB().Query("SELECT id, organization_id, name "+
++	rows, err := GetDatabase().DB().Query("SELECT id, organization_id, name, parent_id "+
+ 		"FROM groups "+
+ 		"WHERE id = ANY($1) "+
+ 		"ORDER BY name",
+@@ -105,8 +117,7 @@ func (r *GroupRepository) GetAllByIDs(groupIDs []string) ([]*Group, error) {
+ 	defer rows.Close()
+ 	for rows.Next() {
+ 		e := &Group{}
+-		err = rows.Scan(&e.ID, &e.OrganizationID, &e.Name)
+-		if err != nil {
++		if err = r.scanGroup(e, rows.Scan); err != nil {
+ 			return nil, err
+ 		}
+ 		result = append(result, e)
+@@ -116,10 +127,18 @@ func (r *GroupRepository) GetAllByIDs(groupIDs []string) ([]*Group, error) {
+ 
+ func (r *GroupRepository) GetAllWhereUserIsMember(userID string) ([]*Group, error) {
+ 	var result []*Group
+-	rows, err := GetDatabase().DB().Query("SELECT id, organization_id, name "+
+-		"FROM groups "+
+-		"WHERE id IN (SELECT group_id FROM users_groups WHERE user_id = $1) "+
+-		"ORDER BY name",
++	// Recursive CTE: include direct memberships and all ancestor groups so that
++	// a user in a sub-group is also considered a member of every parent group.
++	rows, err := GetDatabase().DB().Query(
++		"WITH RECURSIVE group_ancestors AS ("+
++			"SELECT g.id, g.organization_id, g.name, g.parent_id "+
++			"FROM groups g INNER JOIN users_groups ug ON g.id = ug.group_id "+
++			"WHERE ug.user_id = $1 "+
++			"UNION ALL "+
++			"SELECT g.id, g.organization_id, g.name, g.parent_id "+
++			"FROM groups g INNER JOIN group_ancestors ga ON g.id = ga.parent_id"+
++			") "+
++			"SELECT DISTINCT id, organization_id, name, parent_id FROM group_ancestors ORDER BY name",
+ 		userID)
+ 	if err != nil {
+ 		return nil, err
+@@ -127,8 +146,7 @@ func (r *GroupRepository) GetAllWhereUserIsMember(userID string) ([]*Group, erro
+ 	defer rows.Close()
+ 	for rows.Next() {
+ 		e := &Group{}
+-		err = rows.Scan(&e.ID, &e.OrganizationID, &e.Name)
+-		if err != nil {
++		if err = r.scanGroup(e, rows.Scan); err != nil {
+ 			return nil, err
+ 		}
+ 		result = append(result, e)
+@@ -138,7 +156,7 @@ func (r *GroupRepository) GetAllWhereUserIsMember(userID string) ([]*Group, erro
+ 
+ func (r *GroupRepository) GetByKeyword(organizationID string, keyword string) ([]*Group, error) {
+ 	var result []*Group
+-	rows, err := GetDatabase().DB().Query("SELECT id, organization_id, name "+
++	rows, err := GetDatabase().DB().Query("SELECT id, organization_id, name, parent_id "+
+ 		"FROM groups "+
+ 		"WHERE organization_id = $1 AND LOWER(name) LIKE '%' || $2 || '%' "+
+ 		"ORDER BY name", organizationID, strings.ToLower(keyword))
+@@ -148,8 +166,7 @@ func (r *GroupRepository) GetByKeyword(organizationID string, keyword string) ([
+ 	defer rows.Close()
+ 	for rows.Next() {
+ 		e := &Group{}
+-		err = rows.Scan(&e.ID, &e.OrganizationID, &e.Name)
+-		if err != nil {
++		if err = r.scanGroup(e, rows.Scan); err != nil {
+ 			return nil, err
+ 		}
+ 		result = append(result, e)
+@@ -159,10 +176,10 @@ func (r *GroupRepository) GetByKeyword(organizationID string, keyword string) ([
+ 
+ func (r *GroupRepository) GetByName(organizationID string, name string) (*Group, error) {
+ 	e := &Group{}
+-	err := GetDatabase().DB().QueryRow("SELECT id, organization_id, name "+
++	row := GetDatabase().DB().QueryRow("SELECT id, organization_id, name, parent_id "+
+ 		"FROM groups "+
+-		"WHERE organization_id = $1 AND LOWER(name) = $2", organizationID, strings.ToLower(name)).Scan(&e.ID, &e.OrganizationID, &e.Name)
+-	if err != nil {
++		"WHERE organization_id = $1 AND LOWER(name) = $2", organizationID, strings.ToLower(name))
++	if err := r.scanGroup(e, row.Scan); err != nil {
+ 		return nil, err
+ 	}
+ 	return e, nil
+@@ -183,12 +200,30 @@ func (r *GroupRepository) GroupsExistAndBelongToOrg(organizationID string, group
+ func (r *GroupRepository) Update(e *Group) error {
+ 	_, err := GetDatabase().DB().Exec("UPDATE groups SET "+
+ 		"organization_id = $1, "+
+-		"name = $2 "+
+-		"WHERE id = $3",
+-		e.OrganizationID, e.Name, e.ID)
++		"name = $2, "+
++		"parent_id = NULLIF($3, '')::uuid "+
++		"WHERE id = $4",
++		e.OrganizationID, e.Name, e.ParentID, e.ID)
+ 	return err
+ }
+ 
++// IsAncestor returns true if ancestorID is an ancestor of groupID (or equals groupID),
++// which would create a cycle if ancestorID were set as parent of groupID.
++func (r *GroupRepository) IsAncestor(groupID, ancestorID string) (bool, error) {
++	var count int
++	err := GetDatabase().DB().QueryRow(
++		"WITH RECURSIVE ancestors AS ("+
++			"SELECT id, parent_id FROM groups WHERE id = $1 "+
++			"UNION ALL "+
++			"SELECT g.id, g.parent_id FROM groups g JOIN ancestors a ON g.id = a.parent_id"+
++			") SELECT COUNT(*) FROM ancestors WHERE id = $2",
++		groupID, ancestorID).Scan(&count)
++	if err != nil {
++		return false, err
++	}
++	return count > 0, nil
++}
++
+ func (r *GroupRepository) Delete(e *Group) error {
+ 	if _, err := GetDatabase().DB().Exec("DELETE FROM users_groups WHERE "+
+ 		"group_id = $1", e.ID); err != nil {
+diff --git a/server/repository/test/group-repository_test.go b/server/repository/test/group-repository_test.go
+index da6b1be0..80855945 100644
+--- a/server/repository/test/group-repository_test.go
++++ b/server/repository/test/group-repository_test.go
+@@ -58,6 +58,107 @@ func TestGroupCRUD(t *testing.T) {
+ 	CheckTestBool(t, true, err == nil)
+ }
+ 
++func TestGroupSubGroupParentID(t *testing.T) {
++	ClearTestDB()
++	org := CreateTestOrg("test.com")
++
++	parent := &Group{OrganizationID: org.ID, Name: "Parent"}
++	GetGroupRepository().Create(parent)
++
++	child := &Group{OrganizationID: org.ID, Name: "Child", ParentID: parent.ID}
++	err := GetGroupRepository().Create(child)
++	CheckTestBool(t, true, err == nil)
++
++	res, err := GetGroupRepository().GetOne(child.ID)
++	CheckTestBool(t, true, err == nil)
++	CheckTestString(t, parent.ID, res.ParentID)
++
++	// Update to clear parent
++	child.ParentID = ""
++	err = GetGroupRepository().Update(child)
++	CheckTestBool(t, true, err == nil)
++
++	res, err = GetGroupRepository().GetOne(child.ID)
++	CheckTestBool(t, true, err == nil)
++	CheckTestString(t, "", res.ParentID)
++}
++
++func TestGroupIsAncestor(t *testing.T) {
++	ClearTestDB()
++	org := CreateTestOrg("test.com")
++
++	grandparent := &Group{OrganizationID: org.ID, Name: "Grandparent"}
++	GetGroupRepository().Create(grandparent)
++
++	parent := &Group{OrganizationID: org.ID, Name: "Parent", ParentID: grandparent.ID}
++	GetGroupRepository().Create(parent)
++
++	child := &Group{OrganizationID: org.ID, Name: "Child", ParentID: parent.ID}
++	GetGroupRepository().Create(child)
++
++	unrelated := &Group{OrganizationID: org.ID, Name: "Unrelated"}
++	GetGroupRepository().Create(unrelated)
++
++	// Self is ancestor of self
++	isAncestor, err := GetGroupRepository().IsAncestor(grandparent.ID, grandparent.ID)
++	CheckTestBool(t, true, err == nil)
++	CheckTestBool(t, true, isAncestor)
++
++	// Grandparent is ancestor of parent
++	isAncestor, err = GetGroupRepository().IsAncestor(parent.ID, grandparent.ID)
++	CheckTestBool(t, true, err == nil)
++	CheckTestBool(t, true, isAncestor)
++
++	// Grandparent is ancestor of child (transitive)
++	isAncestor, err = GetGroupRepository().IsAncestor(child.ID, grandparent.ID)
++	CheckTestBool(t, true, err == nil)
++	CheckTestBool(t, true, isAncestor)
++
++	// Child is NOT ancestor of grandparent
++	isAncestor, err = GetGroupRepository().IsAncestor(grandparent.ID, child.ID)
++	CheckTestBool(t, true, err == nil)
++	CheckTestBool(t, false, isAncestor)
++
++	// Unrelated group is not an ancestor of anything
++	isAncestor, err = GetGroupRepository().IsAncestor(child.ID, unrelated.ID)
++	CheckTestBool(t, true, err == nil)
++	CheckTestBool(t, false, isAncestor)
++}
++
++func TestGroupGetAllWhereUserIsMemberInherited(t *testing.T) {
++	ClearTestDB()
++	org := CreateTestOrg("test.com")
++
++	parent := &Group{OrganizationID: org.ID, Name: "Parent"}
++	GetGroupRepository().Create(parent)
++
++	child := &Group{OrganizationID: org.ID, Name: "Child", ParentID: parent.ID}
++	GetGroupRepository().Create(child)
++
++	u1 := CreateTestUserInOrg(org) // member of child only
++	u2 := CreateTestUserInOrg(org) // member of parent only
++
++	GetGroupRepository().AddMembers(child, []string{u1.ID})
++	GetGroupRepository().AddMembers(parent, []string{u2.ID})
++
++	// u1 is directly in child → should also be returned as member of parent (ancestor)
++	res, err := GetGroupRepository().GetAllWhereUserIsMember(u1.ID)
++	CheckTestBool(t, true, err == nil)
++	CheckTestInt(t, 2, len(res))
++	ids := []string{}
++	for _, g := range res {
++		ids = append(ids, g.ID)
++	}
++	CheckTestBool(t, true, slices.Contains(ids, child.ID))
++	CheckTestBool(t, true, slices.Contains(ids, parent.ID))
++
++	// u2 is directly in parent only → should NOT inherit child membership
++	res, err = GetGroupRepository().GetAllWhereUserIsMember(u2.ID)
++	CheckTestBool(t, true, err == nil)
++	CheckTestInt(t, 1, len(res))
++	CheckTestString(t, parent.ID, res[0].ID)
++}
++
+ func TestGroupMembers(t *testing.T) {
+ 	org := CreateTestOrg("test.com")
+ 
+diff --git a/server/router/group-router.go b/server/router/group-router.go
+index 46ea6636..bddd6c0e 100644
+--- a/server/router/group-router.go
++++ b/server/router/group-router.go
+@@ -14,7 +14,8 @@ type GroupRouter struct {
+ }
+ 
+ type CreateGroupRequest struct {
+-	Name string `json:"name" validate:"required,min=3,max=256"`
++	Name     string `json:"name" validate:"required,min=2,max=256"`
++	ParentID string `json:"parentId"`
+ }
+ 
+ type GetGroupResponse struct {
+@@ -92,6 +93,24 @@ func (router *GroupRouter) update(w http.ResponseWriter, r *http.Request) {
+ 	eNew.ID = e.ID
+ 	eNew.OrganizationID = e.OrganizationID
+ 
++	if eNew.ParentID != "" {
++		ok, err := GetGroupRepository().GroupsExistAndBelongToOrg(eNew.OrganizationID, []string{eNew.ParentID})
++		if err != nil || !ok {
++			SendBadRequestCode(w, ResponseCodeGroupInvalidParent)
++			return
++		}
++		cycle, err := GetGroupRepository().IsAncestor(eNew.ParentID, eNew.ID)
++		if err != nil {
++			log.Println(err)
++			SendInternalServerError(w)
++			return
++		}
++		if cycle || eNew.ParentID == eNew.ID {
++			SendBadRequestCode(w, ResponseCodeGroupInvalidParent)
++			return
++		}
++	}
++
+ 	existingGroup, err := GetGroupRepository().GetByName(e.OrganizationID, eNew.Name)
+ 	if err == nil && existingGroup != nil && existingGroup.ID != e.ID {
+ 		SendAlreadyExistsCode(w, ResponseCodeGroupNameAlreadyExists)
+@@ -145,6 +164,14 @@ func (router *GroupRouter) create(w http.ResponseWriter, r *http.Request) {
+ 	e := router.copyFromRestModel(&m)
+ 	e.OrganizationID = user.OrganizationID
+ 
++	if e.ParentID != "" {
++		ok, err := GetGroupRepository().GroupsExistAndBelongToOrg(e.OrganizationID, []string{e.ParentID})
++		if err != nil || !ok {
++			SendBadRequestCode(w, ResponseCodeGroupInvalidParent)
++			return
++		}
++	}
++
+ 	existingGroup, err := GetGroupRepository().GetByName(e.OrganizationID, e.Name)
+ 	if err == nil && existingGroup != nil {
+ 		SendAlreadyExistsCode(w, ResponseCodeGroupNameAlreadyExists)
+@@ -275,6 +302,7 @@ func (router *GroupRouter) getMembers(w http.ResponseWriter, r *http.Request) {
+ func (router *GroupRouter) copyFromRestModel(m *CreateGroupRequest) *Group {
+ 	e := &Group{}
+ 	e.Name = m.Name
++	e.ParentID = m.ParentID
+ 	return e
+ }
+ 
+@@ -283,5 +311,6 @@ func (router *GroupRouter) copyToRestModel(e *Group) *GetGroupResponse {
+ 	m.ID = e.ID
+ 	m.OrganizationID = e.OrganizationID
+ 	m.Name = e.Name
++	m.ParentID = e.ParentID
+ 	return m
+ }
+diff --git a/server/router/routes.go b/server/router/routes.go
+index 7630cc18..bb8d490a 100644
+--- a/server/router/routes.go
++++ b/server/router/routes.go
+@@ -55,7 +55,8 @@ var (
+ 
+ 	ResponseCodeUserAlreadyExists = 3001
+ 
+-	ResponseCodeGroupNameAlreadyExists = 4001
++	ResponseCodeGroupNameAlreadyExists  = 4001
++	ResponseCodeGroupInvalidParent      = 4002
+ 
+ 	ResponseCodePasswordUpdateRequired = 5001
+ 
+diff --git a/server/router/test/group-router_test.go b/server/router/test/group-router_test.go
+index 8897605f..35d62769 100644
+--- a/server/router/test/group-router_test.go
++++ b/server/router/test/group-router_test.go
+@@ -280,3 +280,146 @@ func TestGroupsGetNotFound(t *testing.T) {
+ 	res := ExecuteTestRequest(req)
+ 	CheckTestResponseCode(t, http.StatusNotFound, res.Code)
+ }
++
++func TestGroupSubGroupCreate(t *testing.T) {
++	ClearTestDB()
++	org := CreateTestOrg("test.com")
++	GetSettingsRepository().Set(org.ID, SettingFeatureGroups.Name, "1")
++	admin := CreateTestUserOrgAdmin(org)
++	loginResponse := LoginTestUser(admin.ID)
++
++	// Create parent
++	payload := `{"name": "Parent"}`
++	req := NewHTTPRequest("POST", "/group/", loginResponse.UserID, bytes.NewBufferString(payload))
++	res := ExecuteTestRequest(req)
++	CheckTestResponseCode(t, http.StatusCreated, res.Code)
++	parentID := res.Header().Get("X-Object-Id")
++
++	// Create child referencing parent
++	payload = `{"name": "Child", "parentId": "` + parentID + `"}`
++	req = NewHTTPRequest("POST", "/group/", loginResponse.UserID, bytes.NewBufferString(payload))
++	res = ExecuteTestRequest(req)
++	CheckTestResponseCode(t, http.StatusCreated, res.Code)
++	childID := res.Header().Get("X-Object-Id")
++
++	// Read child back and verify parentId is set
++	req = NewHTTPRequest("GET", "/group/"+childID, loginResponse.UserID, nil)
++	res = ExecuteTestRequest(req)
++	CheckTestResponseCode(t, http.StatusOK, res.Code)
++	var resBody *GetGroupResponse
++	json.Unmarshal(res.Body.Bytes(), &resBody)
++	CheckTestString(t, parentID, resBody.ParentID)
++}
++
++func TestGroupSubGroupUpdateParent(t *testing.T) {
++	ClearTestDB()
++	org := CreateTestOrg("test.com")
++	GetSettingsRepository().Set(org.ID, SettingFeatureGroups.Name, "1")
++	admin := CreateTestUserOrgAdmin(org)
++	loginResponse := LoginTestUser(admin.ID)
++
++	// Create two groups
++	payload := `{"name": "Parent"}`
++	req := NewHTTPRequest("POST", "/group/", loginResponse.UserID, bytes.NewBufferString(payload))
++	res := ExecuteTestRequest(req)
++	CheckTestResponseCode(t, http.StatusCreated, res.Code)
++	parentID := res.Header().Get("X-Object-Id")
++
++	payload = `{"name": "Child"}`
++	req = NewHTTPRequest("POST", "/group/", loginResponse.UserID, bytes.NewBufferString(payload))
++	res = ExecuteTestRequest(req)
++	CheckTestResponseCode(t, http.StatusCreated, res.Code)
++	childID := res.Header().Get("X-Object-Id")
++
++	// Set parent via update
++	payload = `{"name": "Child", "parentId": "` + parentID + `"}`
++	req = NewHTTPRequest("PUT", "/group/"+childID, loginResponse.UserID, bytes.NewBufferString(payload))
++	res = ExecuteTestRequest(req)
++	CheckTestResponseCode(t, http.StatusNoContent, res.Code)
++
++	// Verify parentId persisted
++	req = NewHTTPRequest("GET", "/group/"+childID, loginResponse.UserID, nil)
++	res = ExecuteTestRequest(req)
++	CheckTestResponseCode(t, http.StatusOK, res.Code)
++	var resBody *GetGroupResponse
++	json.Unmarshal(res.Body.Bytes(), &resBody)
++	CheckTestString(t, parentID, resBody.ParentID)
++
++	// Clear parent
++	payload = `{"name": "Child", "parentId": ""}`
++	req = NewHTTPRequest("PUT", "/group/"+childID, loginResponse.UserID, bytes.NewBufferString(payload))
++	res = ExecuteTestRequest(req)
++	CheckTestResponseCode(t, http.StatusNoContent, res.Code)
++
++	req = NewHTTPRequest("GET", "/group/"+childID, loginResponse.UserID, nil)
++	res = ExecuteTestRequest(req)
++	CheckTestResponseCode(t, http.StatusOK, res.Code)
++	var resBody2 *GetGroupResponse
++	json.Unmarshal(res.Body.Bytes(), &resBody2)
++	CheckTestString(t, "", resBody2.ParentID)
++}
++
++func TestGroupSubGroupCycleRejected(t *testing.T) {
++	ClearTestDB()
++	org := CreateTestOrg("test.com")
++	GetSettingsRepository().Set(org.ID, SettingFeatureGroups.Name, "1")
++	admin := CreateTestUserOrgAdmin(org)
++	loginResponse := LoginTestUser(admin.ID)
++
++	// Create AA → BB → CC chain
++	payload := `{"name": "AA"}`
++	req := NewHTTPRequest("POST", "/group/", loginResponse.UserID, bytes.NewBufferString(payload))
++	res := ExecuteTestRequest(req)
++	CheckTestResponseCode(t, http.StatusCreated, res.Code)
++	idA := res.Header().Get("X-Object-Id")
++
++	payload = `{"name": "BB", "parentId": "` + idA + `"}`
++	req = NewHTTPRequest("POST", "/group/", loginResponse.UserID, bytes.NewBufferString(payload))
++	res = ExecuteTestRequest(req)
++	CheckTestResponseCode(t, http.StatusCreated, res.Code)
++	idB := res.Header().Get("X-Object-Id")
++
++	payload = `{"name": "CC", "parentId": "` + idB + `"}`
++	req = NewHTTPRequest("POST", "/group/", loginResponse.UserID, bytes.NewBufferString(payload))
++	res = ExecuteTestRequest(req)
++	CheckTestResponseCode(t, http.StatusCreated, res.Code)
++	idC := res.Header().Get("X-Object-Id")
++
++	// Try to set AA's parent to CC → would create AA→BB→CC→AA cycle
++	payload = `{"name": "AA", "parentId": "` + idC + `"}`
++	req = NewHTTPRequest("PUT", "/group/"+idA, loginResponse.UserID, bytes.NewBufferString(payload))
++	res = ExecuteTestRequest(req)
++	CheckTestResponseCode(t, http.StatusBadRequest, res.Code)
++
++	// Try to set a group as its own parent
++	payload = `{"name": "AA", "parentId": "` + idA + `"}`
++	req = NewHTTPRequest("PUT", "/group/"+idA, loginResponse.UserID, bytes.NewBufferString(payload))
++	res = ExecuteTestRequest(req)
++	CheckTestResponseCode(t, http.StatusBadRequest, res.Code)
++}
++
++func TestGroupSubGroupForeignOrgParentRejected(t *testing.T) {
++	ClearTestDB()
++	org1 := CreateTestOrg("test.com")
++	GetSettingsRepository().Set(org1.ID, SettingFeatureGroups.Name, "1")
++	org2 := CreateTestOrg("test2.com")
++	GetSettingsRepository().Set(org2.ID, SettingFeatureGroups.Name, "1")
++
++	admin1 := CreateTestUserOrgAdmin(org1)
++	loginResponse1 := LoginTestUser(admin1.ID)
++	admin2 := CreateTestUserOrgAdmin(org2)
++	loginResponse2 := LoginTestUser(admin2.ID)
++
++	// Create a group in org2
++	payload := `{"name": "Org2 Group"}`
++	req := NewHTTPRequest("POST", "/group/", loginResponse2.UserID, bytes.NewBufferString(payload))
++	res := ExecuteTestRequest(req)
++	CheckTestResponseCode(t, http.StatusCreated, res.Code)
++	org2GroupID := res.Header().Get("X-Object-Id")
++
++	// Try to create a group in org1 with parent from org2 → should be rejected
++	payload = `{"name": "Org1 Child", "parentId": "` + org2GroupID + `"}`
++	req = NewHTTPRequest("POST", "/group/", loginResponse1.UserID, bytes.NewBufferString(payload))
++	res = ExecuteTestRequest(req)
++	CheckTestResponseCode(t, http.StatusBadRequest, res.Code)
++}
+-- 
+2.54.0
+

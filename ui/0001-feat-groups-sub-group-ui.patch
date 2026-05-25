@@ -1,0 +1,208 @@
+From cc89fa68f1e39311ab3bd5ae9c901804cc6e8e37 Mon Sep 17 00:00:00 2001
+From: James Nohilly <184946269+jamesnohilly@users.noreply.github.com>
+Date: Mon, 25 May 2026 13:10:43 +0100
+Subject: [PATCH] feat(admin-ui): add sub-group parent controls
+
+---
+ ui/src/pages/admin/groups/[id].tsx  | 47 +++++++++++++++++++++++++----
+ ui/src/pages/admin/groups/index.tsx |  8 +++++
+ ui/src/types/ErrorText.ts           |  2 ++
+ ui/src/types/Group.ts               |  4 +++
+ 4 files changed, 55 insertions(+), 6 deletions(-)
+
+diff --git a/ui/src/pages/admin/groups/[id].tsx b/ui/src/pages/admin/groups/[id].tsx
+index 440fa834..2bdadc85 100644
+--- a/ui/src/pages/admin/groups/[id].tsx
++++ b/ui/src/pages/admin/groups/[id].tsx
+@@ -41,6 +41,8 @@ interface State {
+   errorText: string;
+   goBack: boolean;
+   name: string;
++  parentId: string;
++  allGroups: Group[];
+   addUserIds: string[];
+   members: User[];
+   removeUserIds: string[];
+@@ -67,6 +69,8 @@ class EditUser extends React.Component<Props, State> {
+       errorText: "",
+       goBack: false,
+       name: "",
++      parentId: "",
++      allGroups: [],
+       addUserIds: [],
+       members: [],
+       removeUserIds: [],
+@@ -84,22 +88,30 @@ class EditUser extends React.Component<Props, State> {
+   loadData = () => {
+     let promises: Promise<any>[] = [];
+     const { id } = this.props.router.query;
+-    if (id && typeof id === "string" && id !== "add") {
++    const isNew = !id || id === "add";
++    if (!isNew && typeof id === "string") {
+       promises.push(Group.get(id));
+     }
++    promises.push(Group.list());
+     Promise.all(promises).then((values) => {
+-      if (values.length >= 1) {
++      const allGroups: Group[] = isNew ? values[0] : values[1];
++      if (!isNew) {
+         let group = values[0];
+         this.entity = group;
+         this.loadMembers().then(() => {
+           this.setState({
++            loading: false,
+             name: group.name,
++            parentId: group.parentId ?? "",
++            allGroups: allGroups.filter((g: Group) => g.id !== group.id),
+           });
+         });
++      } else {
++        this.setState({
++          loading: false,
++          allGroups: allGroups,
++        });
+       }
+-      this.setState({
+-        loading: false,
+-      });
+     });
+   };
+ 
+@@ -118,6 +130,7 @@ class EditUser extends React.Component<Props, State> {
+       saved: false,
+     });
+     this.entity.name = this.state.name;
++    this.entity.parentId = this.state.parentId;
+     this.entity
+       .save()
+       .then((e) => {
+@@ -389,6 +402,11 @@ class EditUser extends React.Component<Props, State> {
+           >
+             {this.props.t("remove")}
+           </Button>
++          {this.entity.id && this.state.parentId === "" && (
++            <p className="text-muted mt-2">
++              <small>{this.props.t("subGroupMembersHint")}</small>
++            </p>
++          )}
+         </>
+       );
+     }
+@@ -406,12 +424,29 @@ class EditUser extends React.Component<Props, State> {
+                 id="name"
+                 type="text"
+                 value={this.state.name}
+-                minLength={3}
++                minLength={2}
+                 onChange={(e: any) => this.setState({ name: e.target.value })}
+                 required={true}
+               />
+             </Col>
+           </Form.Group>
++          <Form.Group as={Row}>
++            <Form.Label column sm="2" htmlFor="parentId">
++              {this.props.t("parentGroup")}
++            </Form.Label>
++            <Col sm="4">
++              <Form.Select
++                id="parentId"
++                value={this.state.parentId}
++                onChange={(e: any) => this.setState({ parentId: e.target.value })}
++              >
++                <option value="">{this.props.t("none")}</option>
++                {this.state.allGroups.map((g: Group) => (
++                  <option key={g.id} value={g.id}>{g.name}</option>
++                ))}
++              </Form.Select>
++            </Col>
++          </Form.Group>
+         </Form>
+         {memberTable}
+       </FullLayout>
+diff --git a/ui/src/pages/admin/groups/index.tsx b/ui/src/pages/admin/groups/index.tsx
+index e3531654..c3bc2103 100644
+--- a/ui/src/pages/admin/groups/index.tsx
++++ b/ui/src/pages/admin/groups/index.tsx
+@@ -57,10 +57,17 @@ class Groups extends React.Component<Props, State> {
+     this.setState({ selectedItem: group.id });
+   };
+ 
++  getParentName = (parentId: string): string => {
++    if (!parentId) return "";
++    const parent = this.data.find((g) => g.id === parentId);
++    return parent ? parent.name : "";
++  };
++
+   renderItem = (group: Group) => {
+     return (
+       <tr key={group.id} onClick={() => this.onItemSelect(group)}>
+         <td>{group.name}</td>
++        <td>{this.getParentName(group.parentId)}</td>
+       </tr>
+     );
+   };
+@@ -138,6 +145,7 @@ class Groups extends React.Component<Props, State> {
+           <thead>
+             <tr>
+               <th>{this.props.t("name")}</th>
++              <th>{this.props.t("parentGroup")}</th>
+             </tr>
+           </thead>
+           <tbody>{rows}</tbody>
+diff --git a/ui/src/types/ErrorText.ts b/ui/src/types/ErrorText.ts
+index 0fa5f4b8..67fed1dc 100644
+--- a/ui/src/types/ErrorText.ts
++++ b/ui/src/types/ErrorText.ts
+@@ -17,6 +17,7 @@ export const enum ResponseCode {
+   UsernameExists = 3001,
+ 
+   GroupNameAlreadyExists = 4001,
++  GroupInvalidParent = 4002,
+ 
+   PasswordUpdateRequired = 5001,
+ 
+@@ -53,6 +54,7 @@ export default class ErrorText {
+       [ResponseCode.UsernameExists]: () => t("errorUsernameExists"),
+       [ResponseCode.GroupNameAlreadyExists]: () =>
+         t("errorGroupNameAlreadyExists"),
++      [ResponseCode.GroupInvalidParent]: () => t("errorGroupInvalidParent"),
+       [ResponseCode.AuthProviderNameExists]: () =>
+         t("errorAuthProviderNameExists"),
+     };
+diff --git a/ui/src/types/Group.ts b/ui/src/types/Group.ts
+index 42d6db56..fe82032a 100644
+--- a/ui/src/types/Group.ts
++++ b/ui/src/types/Group.ts
+@@ -6,18 +6,21 @@ export default class Group extends Entity {
+   id: string;
+   organizationId: string;
+   name: string;
++  parentId: string;
+ 
+   constructor() {
+     super();
+     this.id = "";
+     this.organizationId = "";
+     this.name = "";
++    this.parentId = "";
+   }
+ 
+   serialize(): Object {
+     return Object.assign(super.serialize(), {
+       organizationId: this.organizationId,
+       name: this.name,
++      parentId: this.parentId,
+     });
+   }
+ 
+@@ -25,6 +28,7 @@ export default class Group extends Entity {
+     super.deserialize(input);
+     this.organizationId = input.organizationId;
+     this.name = input.name;
++    this.parentId = input.parentId ?? "";
+   }
+ 
+   getBackendUrl(): string {
+-- 
+2.54.0
+

@@ -1,0 +1,362 @@
+From 12067c19f3c2c02ad8a24b437dac448df56c773c Mon Sep 17 00:00:00 2001
+From: James Nohilly <184946269+jamesnohilly@users.noreply.github.com>
+Date: Mon, 25 May 2026 13:10:25 +0100
+Subject: [PATCH] fix(i18n): add subgroup translation keys
+
+---
+ ui/i18n/translations.de.json    | 5 ++++-
+ ui/i18n/translations.en-GB.json | 5 ++++-
+ ui/i18n/translations.en-US.json | 3 +++
+ ui/i18n/translations.es.json    | 3 +++
+ ui/i18n/translations.et.json    | 3 +++
+ ui/i18n/translations.fi.json    | 3 +++
+ ui/i18n/translations.fr.json    | 5 ++++-
+ ui/i18n/translations.he.json    | 3 +++
+ ui/i18n/translations.hu.json    | 3 +++
+ ui/i18n/translations.it.json    | 3 +++
+ ui/i18n/translations.nl.json    | 3 +++
+ ui/i18n/translations.pl.json    | 3 +++
+ ui/i18n/translations.pt.json    | 3 +++
+ ui/i18n/translations.ro.json    | 3 +++
+ ui/i18n/translations.zh-TW.json | 3 +++
+ 15 files changed, 48 insertions(+), 3 deletions(-)
+
+diff --git a/ui/i18n/translations.de.json b/ui/i18n/translations.de.json
+index fd45618a..88878ffb 100644
+--- a/ui/i18n/translations.de.json
++++ b/ui/i18n/translations.de.json
+@@ -168,6 +168,7 @@
+   "errorInPast": "Buchungen in der Vergangenheit sind nicht zulässig.",
+   "errorUsernameExists": "Der Benutzername existiert bereits.",
+   "errorGroupNameAlreadyExists": "Der Gruppenname existiert bereits.",
++  "errorGroupInvalidParent": "Invalid parent group: the selected group does not exist, belongs to another organization, or would create a circular reference.",
+   "every": "Jede(n)",
+   "featureCurrentlyUnavailable": "Diese Funktion steht aktuell nicht zur Verfügung.",
+   "filter": "Filter",
+@@ -233,6 +234,7 @@
+   "noRecords": "Keine Datensätze gefunden.",
+   "noResults": "Keine Ergebnisse.",
+   "none": "Keiner",
++  "parentGroup": "Übergeordnete Gruppe",
+   "notice": "Vorlaufzeit",
+   "numFreeSpaces": "# Freie Plätze",
+   "numRecords": "# Ergebnisse",
+@@ -483,5 +485,6 @@
+   "cloudHintLink": "Erfahre mehr über Seatsurfing Professional",
+   "sponsorLink": "Unterstütze uns als Sponsor",
+   "shapeRect": "Rechteck",
+-  "shapeCircle": "Kreis/Oval"
++  "shapeCircle": "Kreis/Oval",
++  "subGroupMembersHint": "Mitglieder von Untergruppen haben ebenfalls Zugriff auf Bereiche, die dieser Gruppe zugewiesen sind."
+ }
+diff --git a/ui/i18n/translations.en-GB.json b/ui/i18n/translations.en-GB.json
+index ea8b33c3..a96f3357 100644
+--- a/ui/i18n/translations.en-GB.json
++++ b/ui/i18n/translations.en-GB.json
+@@ -168,6 +168,7 @@
+   "errorInPast": "Your booking cannot be in the past.",
+   "errorUsernameExists": "The username already exists.",
+   "errorGroupNameAlreadyExists": "The group name already exists.",
++  "errorGroupInvalidParent": "Invalid parent group: the selected group does not exist, belongs to another organization, or would create a circular reference.",
+   "errorAuthProviderNameExists": "The auth provider name already exists.",
+   "every": "Every",
+   "featureCurrentlyUnavailable": "This feature is currently unavailable.",
+@@ -234,6 +235,7 @@
+   "noRecords": "No records found.",
+   "noResults": "No results.",
+   "none": "None",
++  "parentGroup": "Parent Group",
+   "notice": "Notice",
+   "numFreeSpaces": "# Free spaces",
+   "numRecords": "# Records",
+@@ -480,5 +482,6 @@
+   "cloudHintLink": "Learn more about Seatsurfing Professional",
+   "sponsorLink": "Support us by becoming a sponsor",
+   "shapeRect": "Rectangle",
+-  "shapeCircle": "Circle/Oval"
++  "shapeCircle": "Circle/Oval",
++  "subGroupMembersHint": "Members of sub-groups also have access to spaces assigned to this group."
+ }
+diff --git a/ui/i18n/translations.en-US.json b/ui/i18n/translations.en-US.json
+index a12e7f74..93ae8b8f 100644
+--- a/ui/i18n/translations.en-US.json
++++ b/ui/i18n/translations.en-US.json
+@@ -167,6 +167,7 @@
+   "errorInPast": "Your booking cannot be in the past.",
+   "errorUsernameExists": "The username already exists.",
+   "errorGroupNameAlreadyExists": "The group name already exists.",
++  "errorGroupInvalidParent": "Invalid parent group: the selected group does not exist, belongs to another organization, or would create a circular reference.",
+   "every": "Every",
+   "featureCurrentlyUnavailable": "This feature is currently unavailable.",
+   "filter": "Filter",
+@@ -232,6 +233,8 @@
+   "noRecords": "No records found.",
+   "noResults": "No results.",
+   "none": "None",
++  "parentGroup": "Parent Group",
++  "subGroupMembersHint": "Members of sub-groups also have access to spaces assigned to this group.",
+   "notice": "Notice",
+   "numFreeSpaces": "# Free spaces",
+   "numRecords": "# Records",
+diff --git a/ui/i18n/translations.es.json b/ui/i18n/translations.es.json
+index 2a6e6e15..f3aa51e0 100644
+--- a/ui/i18n/translations.es.json
++++ b/ui/i18n/translations.es.json
+@@ -161,6 +161,7 @@
+   "errorInPast": "Your booking cannot be in the past.",
+   "errorUsernameExists": "The username already exists.",
+   "errorGroupNameAlreadyExists": "The group name already exists.",
++  "errorGroupInvalidParent": "Invalid parent group: the selected group does not exist, belongs to another organization, or would create a circular reference.",
+   "every": "Cada",
+   "featureCurrentlyUnavailable": "Esta función no está disponible actualmente.",
+   "filter": "Filtro",
+@@ -224,6 +225,8 @@
+   "noRecords": "No se encontraron registros.",
+   "noResults": "Sin resultados.",
+   "none": "Ninguna",
++  "parentGroup": "Parent Group",
++  "subGroupMembersHint": "Members of sub-groups also have access to spaces assigned to this group.",
+   "notice": "Aviso",
+   "numFreeSpaces": "# Espacios libres",
+   "numRecords": "# Records",
+diff --git a/ui/i18n/translations.et.json b/ui/i18n/translations.et.json
+index 1d0754d5..3756856b 100644
+--- a/ui/i18n/translations.et.json
++++ b/ui/i18n/translations.et.json
+@@ -161,6 +161,7 @@
+   "errorInPast": "Your booking cannot be in the past.",
+   "errorUsernameExists": "The username already exists.",
+   "errorGroupNameAlreadyExists": "The group name already exists.",
++  "errorGroupInvalidParent": "Invalid parent group: the selected group does not exist, belongs to another organization, or would create a circular reference.",
+   "every": "Every",
+   "featureCurrentlyUnavailable": "This feature is currently unavailable.",
+   "filter": "Filtreeri",
+@@ -224,6 +225,8 @@
+   "noRecords": "No records found.",
+   "noResults": "No results.",
+   "none": "Puudub",
++  "parentGroup": "Parent Group",
++  "subGroupMembersHint": "Members of sub-groups also have access to spaces assigned to this group.",
+   "notice": "Märkus",
+   "numFreeSpaces": "Vabade kohtade arv",
+   "numRecords": "# Records",
+diff --git a/ui/i18n/translations.fi.json b/ui/i18n/translations.fi.json
+index e7b66e51..ea24286a 100644
+--- a/ui/i18n/translations.fi.json
++++ b/ui/i18n/translations.fi.json
+@@ -168,6 +168,7 @@
+   "errorInPast": "Varauksesi ei voi olla menneisyydessä.",
+   "errorUsernameExists": "Käyttäjätunnus on jo olemassa.",
+   "errorGroupNameAlreadyExists": "Ryhmän nimi on jo olemassa.",
++  "errorGroupInvalidParent": "Invalid parent group: the selected group does not exist, belongs to another organization, or would create a circular reference.",
+   "every": "Joka",
+   "featureCurrentlyUnavailable": "Tämä ominaisuus ei ole tällä hetkellä käytettävissä.",
+   "filter": "Suodata",
+@@ -233,6 +234,8 @@
+   "noRecords": "Tietueita ei löytynyt.",
+   "noResults": "Ei tuloksia.",
+   "none": "Ei mitään",
++  "parentGroup": "Parent Group",
++  "subGroupMembersHint": "Members of sub-groups also have access to spaces assigned to this group.",
+   "notice": "Huomio",
+   "numFreeSpaces": "# vapaita työpisteitä",
+   "numRecords": "# tietuetta",
+diff --git a/ui/i18n/translations.fr.json b/ui/i18n/translations.fr.json
+index 27ae2ca3..96d430c5 100644
+--- a/ui/i18n/translations.fr.json
++++ b/ui/i18n/translations.fr.json
+@@ -161,6 +161,7 @@
+   "errorInPast": "Your booking cannot be in the past.",
+   "errorUsernameExists": "The username already exists.",
+   "errorGroupNameAlreadyExists": "The group name already exists.",
++  "errorGroupInvalidParent": "Invalid parent group: the selected group does not exist, belongs to another organization, or would create a circular reference.",
+   "every": "Every",
+   "featureCurrentlyUnavailable": "Cette fonctionnalité n’est actuellement pas disponible.",
+   "filter": "Filter",
+@@ -224,6 +225,7 @@
+   "noRecords": "Aucun enregistrement trouvé.",
+   "noResults": "Aucun résultat.",
+   "none": "Aucun",
++  "parentGroup": "Groupe parent",
+   "notice": "Remarquer",
+   "numFreeSpaces": "# Free spaces",
+   "numRecords": "# Records",
+@@ -482,5 +484,6 @@
+   "cloudHintLink": "Learn more about Seatsurfing Professional",
+   "sponsorLink": "Support us by becoming a sponsor",
+   "shapeRect": "Rectangle",
+-  "shapeCircle": "Circle/Oval"
++  "shapeCircle": "Circle/Oval",
++  "subGroupMembersHint": "Les membres des sous-groupes ont également accès aux espaces assignés à ce groupe."
+ }
+diff --git a/ui/i18n/translations.he.json b/ui/i18n/translations.he.json
+index 09106dc9..d5a3e0c8 100644
+--- a/ui/i18n/translations.he.json
++++ b/ui/i18n/translations.he.json
+@@ -161,6 +161,7 @@
+   "errorInPast": "Your booking cannot be in the past.",
+   "errorUsernameExists": "The username already exists.",
+   "errorGroupNameAlreadyExists": "The group name already exists.",
++  "errorGroupInvalidParent": "Invalid parent group: the selected group does not exist, belongs to another organization, or would create a circular reference.",
+   "every": "Every",
+   "featureCurrentlyUnavailable": "היכולת הזאת לא זמינה כרגע.",
+   "filter": "Filter",
+@@ -224,6 +225,8 @@
+   "noRecords": "לא נמצאו רשומות.",
+   "noResults": "אין תוצאות.",
+   "none": "אין",
++  "parentGroup": "Parent Group",
++  "subGroupMembersHint": "Members of sub-groups also have access to spaces assigned to this group.",
+   "notice": "התראה",
+   "numFreeSpaces": "# Free spaces",
+   "numRecords": "# Records",
+diff --git a/ui/i18n/translations.hu.json b/ui/i18n/translations.hu.json
+index d95d8d57..006dfc1c 100644
+--- a/ui/i18n/translations.hu.json
++++ b/ui/i18n/translations.hu.json
+@@ -161,6 +161,7 @@
+   "errorInPast": "Your booking cannot be in the past.",
+   "errorUsernameExists": "The username already exists.",
+   "errorGroupNameAlreadyExists": "The group name already exists.",
++  "errorGroupInvalidParent": "Invalid parent group: the selected group does not exist, belongs to another organization, or would create a circular reference.",
+   "every": "Every",
+   "featureCurrentlyUnavailable": "This feature is currently unavailable.",
+   "filter": "Filter",
+@@ -224,6 +225,8 @@
+   "noRecords": "No records found.",
+   "noResults": "No results.",
+   "none": "Nincs",
++  "parentGroup": "Parent Group",
++  "subGroupMembersHint": "Members of sub-groups also have access to spaces assigned to this group.",
+   "notice": "Alapértelmezett dátum",
+   "numFreeSpaces": "# Free spaces",
+   "numRecords": "# Records",
+diff --git a/ui/i18n/translations.it.json b/ui/i18n/translations.it.json
+index c601ecc1..dc0b559d 100644
+--- a/ui/i18n/translations.it.json
++++ b/ui/i18n/translations.it.json
+@@ -161,6 +161,7 @@
+   "errorInPast": "Your booking cannot be in the past.",
+   "errorUsernameExists": "The username already exists.",
+   "errorGroupNameAlreadyExists": "The group name already exists.",
++  "errorGroupInvalidParent": "Invalid parent group: the selected group does not exist, belongs to another organization, or would create a circular reference.",
+   "every": "Every",
+   "featureCurrentlyUnavailable": "This feature is currently unavailable.",
+   "filter": "Filter",
+@@ -224,6 +225,8 @@
+   "noRecords": "No records found.",
+   "noResults": "Nessun risultato.",
+   "none": "Nessuna",
++  "parentGroup": "Parent Group",
++  "subGroupMembersHint": "Members of sub-groups also have access to spaces assigned to this group.",
+   "notice": "Avviso",
+   "numFreeSpaces": "# Free spaces",
+   "numRecords": "# Records",
+diff --git a/ui/i18n/translations.nl.json b/ui/i18n/translations.nl.json
+index b8ed547a..24612d4e 100644
+--- a/ui/i18n/translations.nl.json
++++ b/ui/i18n/translations.nl.json
+@@ -161,6 +161,7 @@
+   "errorInPast": "Your booking cannot be in the past.",
+   "errorUsernameExists": "The username already exists.",
+   "errorGroupNameAlreadyExists": "The group name already exists.",
++  "errorGroupInvalidParent": "Invalid parent group: the selected group does not exist, belongs to another organization, or would create a circular reference.",
+   "every": "Every",
+   "featureCurrentlyUnavailable": "Deze functie is momenteel niet beschikbaar.",
+   "filter": "Filter",
+@@ -224,6 +225,8 @@
+   "noRecords": "Geen gegevens gevonden.",
+   "noResults": "Geen resultaten.",
+   "none": "Geen",
++  "parentGroup": "Parent Group",
++  "subGroupMembersHint": "Members of sub-groups also have access to spaces assigned to this group.",
+   "notice": "Mededeling",
+   "numFreeSpaces": "# Vrije ruimtes",
+   "numRecords": "# Records",
+diff --git a/ui/i18n/translations.pl.json b/ui/i18n/translations.pl.json
+index 44b77bbe..c3a71db3 100644
+--- a/ui/i18n/translations.pl.json
++++ b/ui/i18n/translations.pl.json
+@@ -161,6 +161,7 @@
+   "errorInPast": "Your booking cannot be in the past.",
+   "errorUsernameExists": "The username already exists.",
+   "errorGroupNameAlreadyExists": "The group name already exists.",
++  "errorGroupInvalidParent": "Invalid parent group: the selected group does not exist, belongs to another organization, or would create a circular reference.",
+   "every": "Co",
+   "featureCurrentlyUnavailable": "Ta funkcja jest obecnie niedostępna.",
+   "filter": "Filtr",
+@@ -224,6 +225,8 @@
+   "noRecords": "Brak rekordów.",
+   "noResults": "Brak wyników.",
+   "none": "Brak",
++  "parentGroup": "Parent Group",
++  "subGroupMembersHint": "Members of sub-groups also have access to spaces assigned to this group.",
+   "notice": "Powiadomienie",
+   "numFreeSpaces": "# Liczba wolnych miejsc",
+   "numRecords": "# Records",
+diff --git a/ui/i18n/translations.pt.json b/ui/i18n/translations.pt.json
+index 74adfd3e..f05f2254 100644
+--- a/ui/i18n/translations.pt.json
++++ b/ui/i18n/translations.pt.json
+@@ -161,6 +161,7 @@
+   "errorInPast": "Your booking cannot be in the past.",
+   "errorUsernameExists": "The username already exists.",
+   "errorGroupNameAlreadyExists": "The group name already exists.",
++  "errorGroupInvalidParent": "Invalid parent group: the selected group does not exist, belongs to another organization, or would create a circular reference.",
+   "every": "A cada",
+   "featureCurrentlyUnavailable": "Este recurso está indisponível no momento.",
+   "filter": "Filtrar",
+@@ -224,6 +225,8 @@
+   "noRecords": "Nenhum registro encontrado.",
+   "noResults": "Nenhum resultado.",
+   "none": "Nenhum",
++  "parentGroup": "Parent Group",
++  "subGroupMembersHint": "Members of sub-groups also have access to spaces assigned to this group.",
+   "notice": "Aviso",
+   "numFreeSpaces": "# Espaços livres",
+   "numRecords": "# Records",
+diff --git a/ui/i18n/translations.ro.json b/ui/i18n/translations.ro.json
+index 69b44393..04087e4f 100644
+--- a/ui/i18n/translations.ro.json
++++ b/ui/i18n/translations.ro.json
+@@ -161,6 +161,7 @@
+   "errorInPast": "Your booking cannot be in the past.",
+   "errorUsernameExists": "The username already exists.",
+   "errorGroupNameAlreadyExists": "The group name already exists.",
++  "errorGroupInvalidParent": "Invalid parent group: the selected group does not exist, belongs to another organization, or would create a circular reference.",
+   "every": "Every",
+   "featureCurrentlyUnavailable": "This feature is currently unavailable.",
+   "filter": "Filter",
+@@ -224,6 +225,8 @@
+   "noRecords": "No records found.",
+   "noResults": "No results.",
+   "none": "Niciuna",
++  "parentGroup": "Parent Group",
++  "subGroupMembersHint": "Members of sub-groups also have access to spaces assigned to this group.",
+   "notice": "Notificare",
+   "numFreeSpaces": "# Free spaces",
+   "numRecords": "# Records",
+diff --git a/ui/i18n/translations.zh-TW.json b/ui/i18n/translations.zh-TW.json
+index 252d613e..9faf21a6 100644
+--- a/ui/i18n/translations.zh-TW.json
++++ b/ui/i18n/translations.zh-TW.json
+@@ -168,6 +168,7 @@
+   "errorInPast": "您的預訂不能是過去的。",
+   "errorUsernameExists": "使用者名稱已存在。",
+   "errorGroupNameAlreadyExists": "該群組名稱已存在。",
++  "errorGroupInvalidParent": "Invalid parent group: the selected group does not exist, belongs to another organization, or would create a circular reference.",
+   "errorAuthProviderNameExists": "身份驗證提供者名稱已存在。",
+   "every": "每個",
+   "featureCurrentlyUnavailable": "此功能目前無法使用。",
+@@ -234,6 +235,8 @@
+   "noRecords": "沒有找到記錄。",
+   "noResults": "沒有結果。",
+   "none": "無",
++  "parentGroup": "Parent Group",
++  "subGroupMembersHint": "Members of sub-groups also have access to spaces assigned to this group.",
+   "notice": "通知",
+   "numFreeSpaces": "# 可用空間",
+   "numRecords": "# 記錄",
+-- 
+2.54.0
+
