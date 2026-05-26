@@ -15,7 +15,9 @@ The repository contains:
 
 ## Added Features
 
-This fork adds sub-group hierarchy and group-management enhancements on top of upstream Seatsurfing.
+- Sub-group hierarchy
+- Configurable mail, security, and CalDAV feature toggles
+- Group-management enhancements
 
 ## Documentation
 
@@ -29,7 +31,7 @@ Workflow and patch maintenance notes live in [docs/](docs/README.md).
 
 ## Patch Application
 
-Use the installer in [apply.sh](apply.sh) to clone the selected upstream tag and apply the patch series.
+Use the installer in [apply.sh](apply.sh) to clone the selected upstream tag and apply the patch series. The translation rebuild step creates a dedicated i18n commit in the generated checkout after the locale files are merged.
 
 ```bash
 ./apply.sh -m tags.txt -e development

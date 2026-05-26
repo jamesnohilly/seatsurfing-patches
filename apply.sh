@@ -108,8 +108,11 @@ apply_dir() {
 }
 
 apply_dir server
-apply_dir i18n
 apply_dir ui
+
+echo ""
+echo "Rebuilding and committing translations from i18n patches..."
+python3 "${PATCHES_DIR}/rebuild-translations.py" "${DEST}" "${PATCHES_DIR}"
 
 echo ""
 echo "Done. Patched environment ready at: ${DEST}"

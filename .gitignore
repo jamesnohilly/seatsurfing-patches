@@ -4,5 +4,8 @@
 *.swp
 *.swo
 *.tmp
+__pycache__/
+*.pyc
+*.pyo
 apply-test/
 seatsurfing-*-patched/
