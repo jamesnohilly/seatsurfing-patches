@@ -1,0 +1,720 @@
+From 2e5cc46e3533e47a6b26511f82205b7273a49de4 Mon Sep 17 00:00:00 2001
+From: James Nohilly <184946269+jamesnohilly@users.noreply.github.com>
+Date: Mon, 25 May 2026 15:49:55 +0100
+Subject: [PATCH] feat(server): add configurable mail and security feature
+ toggles
+
+---
+ server/repository/settings-repository.go      |   6 ++
+ server/router/auth-router.go                  |  58 +++++-----
+ server/router/passkey-router.go               |  28 +++++
+ server/router/settings-router.go              |  18 ++++
+ server/router/test/auth-router_test.go        |  24 +++++
+ server/router/test/settings-router_test.go    |  18 ++++
+ .../test/user-preferences-router_test.go      |  65 ++++++++++++
+ server/router/test/user-router_test.go        |  60 +++++++++++
+ server/router/user-preferences-router.go      | 100 ++++++++++++++----
+ server/router/user-router.go                  |  24 +++++
+ 10 files changed, 350 insertions(+), 51 deletions(-)
+
+diff --git a/server/repository/settings-repository.go b/server/repository/settings-repository.go
+index 96c1a6ae..ace4884e 100644
+--- a/server/repository/settings-repository.go
++++ b/server/repository/settings-repository.go
+@@ -61,6 +61,9 @@ var (
+ 	SettingFeatureGroups                  SettingName = SettingName{Name: "feature_groups", Type: SettingTypeBool}
+ 	SettingFeatureAuthProviders           SettingName = SettingName{Name: "feature_auth_providers", Type: SettingTypeBool}
+ 	SettingFeatureRecurringBookings       SettingName = SettingName{Name: "feature_recurring_bookings", Type: SettingTypeBool}
++	SettingFeatureMailNotifications       SettingName = SettingName{Name: "feature_mail_notifications", Type: SettingTypeBool}
++	SettingFeatureSecurityFeatures        SettingName = SettingName{Name: "feature_security_features", Type: SettingTypeBool}
++	SettingFeatureCalDAV                  SettingName = SettingName{Name: "feature_caldav", Type: SettingTypeBool}
+ 	SettingEnforceTOTP                    SettingName = SettingName{Name: "enforce_totp", Type: SettingTypeBool}
+ 	SettingKioskSecret                    SettingName = SettingName{Name: "kiosk_access_secret", Type: SettingTypeString}
+ 	SettingKioskModeEnabled               SettingName = SettingName{Name: "kiosk_mode_enabled", Type: SettingTypeBool}
+@@ -270,6 +273,9 @@ func (r *SettingsRepository) InitDefaultSettingsForOrg(organizationID string) er
+ 		"($1, '"+SettingFeatureCustomDomains.Name+"', '0'), "+
+ 		"($1, '"+SettingFeatureGroups.Name+"', '0'), "+
+ 		"($1, '"+SettingFeatureKioskMode.Name+"', '0'), "+
++		"($1, '"+SettingFeatureMailNotifications.Name+"', '1'), "+
++		"($1, '"+SettingFeatureSecurityFeatures.Name+"', '1'), "+
++		"($1, '"+SettingFeatureCalDAV.Name+"', '1'), "+
+ 		"($1, '"+SettingKioskModeEnabled.Name+"', '0'), "+
+ 		"($1, '"+SettingAllowAnyUser.Name+"', '1'), "+
+ 		"($1, '"+SettingDailyBasisBooking.Name+"', '0'), "+
+diff --git a/server/router/auth-router.go b/server/router/auth-router.go
+index 51393358..2e463029 100644
+--- a/server/router/auth-router.go
++++ b/server/router/auth-router.go
+@@ -567,39 +567,41 @@ func (router *AuthRouter) loginPassword(w http.ResponseWriter, r *http.Request)
+ 		return
+ 	}
+ 
+-	passkeyResult := router.handlePasskey2FA(w, r, user, &m)
+-	if passkeyResult == passkey2FAHandled {
+-		return
+-	}
+-	// If passkey 2FA was verified, skip TOTP entirely.
+-	if passkeyResult != passkey2FAVerified && user.TotpSecret != "" {
+-		if m.Code == "" {
+-			SendUnauthorized(w)
++	if areSecurityFeaturesEnabled(user.OrganizationID) {
++		passkeyResult := router.handlePasskey2FA(w, r, user, &m)
++		if passkeyResult == passkey2FAHandled {
+ 			return
+ 		}
++		// If passkey 2FA was verified, skip TOTP entirely.
++		if passkeyResult != passkey2FAVerified && user.TotpSecret != "" {
++			if m.Code == "" {
++				SendUnauthorized(w)
++				return
++			}
+ 
+-		// Check for replay attack
+-		if totpCache.isCodeUsed(user.ID, m.Code) {
+-			GetAuthAttemptRepository().RecordLoginAttempt(user, false)
+-			SendNotFound(w)
+-			return
+-		}
++			// Check for replay attack
++			if totpCache.isCodeUsed(user.ID, m.Code) {
++				GetAuthAttemptRepository().RecordLoginAttempt(user, false)
++				SendNotFound(w)
++				return
++			}
+ 
+-		totpSecret, err := DecryptString(string(user.TotpSecret))
+-		if err != nil {
+-			log.Println("Error decrypting TOTP secret for user " + user.ID + ": " + err.Error())
+-			SendInternalServerError(w)
+-			return
+-		}
+-		valid, err := totp.ValidateCustom(m.Code, totpSecret, time.Now(), *TotpOptions)
+-		if err != nil || !valid {
+-			GetAuthAttemptRepository().RecordLoginAttempt(user, false)
+-			SendNotFound(w)
+-			return
+-		}
++			totpSecret, err := DecryptString(string(user.TotpSecret))
++			if err != nil {
++				log.Println("Error decrypting TOTP secret for user " + user.ID + ": " + err.Error())
++				SendInternalServerError(w)
++				return
++			}
++			valid, err := totp.ValidateCustom(m.Code, totpSecret, time.Now(), *TotpOptions)
++			if err != nil || !valid {
++				GetAuthAttemptRepository().RecordLoginAttempt(user, false)
++				SendNotFound(w)
++				return
++			}
+ 
+-		// Mark code as used to prevent replay
+-		totpCache.markCodeAsUsed(user.ID, m.Code)
++			// Mark code as used to prevent replay
++			totpCache.markCodeAsUsed(user.ID, m.Code)
++		}
+ 	}
+ 
+ 	router.createAndSendJWT(w, r, user, "password login", "", "")
+diff --git a/server/router/passkey-router.go b/server/router/passkey-router.go
+index 978a5780..5cc8d83f 100644
+--- a/server/router/passkey-router.go
++++ b/server/router/passkey-router.go
+@@ -187,6 +187,10 @@ func (router *UserRouter) listPasskeys(w http.ResponseWriter, r *http.Request) {
+ 		SendUnauthorized(w)
+ 		return
+ 	}
++	if !areSecurityFeaturesEnabled(user.OrganizationID) {
++		SendForbidden(w)
++		return
++	}
+ 	passkeys, err := GetPasskeyRepository().GetAllByUserID(user.ID)
+ 	if err != nil {
+ 		log.Println(err)
+@@ -211,6 +215,10 @@ func (router *UserRouter) beginPasskeyRegistration(w http.ResponseWriter, r *htt
+ 		SendUnauthorized(w)
+ 		return
+ 	}
++	if !areSecurityFeaturesEnabled(user.OrganizationID) {
++		SendForbidden(w)
++		return
++	}
+ 	// Preconditions per spec §5.4: user must have a password set and not be an IdP user
+ 	if user.HashedPassword == "" {
+ 		SendForbidden(w)
+@@ -300,6 +308,10 @@ func (router *UserRouter) finishPasskeyRegistration(w http.ResponseWriter, r *ht
+ 		SendUnauthorized(w)
+ 		return
+ 	}
++	if !areSecurityFeaturesEnabled(user.OrganizationID) {
++		SendForbidden(w)
++		return
++	}
+ 	var m FinishPasskeyRegistrationRequest
+ 	if UnmarshalValidateBody(r, &m) != nil {
+ 		SendBadRequest(w)
+@@ -390,6 +402,10 @@ func (router *UserRouter) renamePasskey(w http.ResponseWriter, r *http.Request)
+ 		SendUnauthorized(w)
+ 		return
+ 	}
++	if !areSecurityFeaturesEnabled(user.OrganizationID) {
++		SendForbidden(w)
++		return
++	}
+ 	vars := mux.Vars(r)
+ 	pk, err := GetPasskeyRepository().GetOne(vars["id"])
+ 	if err != nil || pk == nil {
+@@ -425,6 +441,10 @@ func (router *UserRouter) deletePasskey(w http.ResponseWriter, r *http.Request)
+ 		SendUnauthorized(w)
+ 		return
+ 	}
++	if !areSecurityFeaturesEnabled(user.OrganizationID) {
++		SendForbidden(w)
++		return
++	}
+ 	vars := mux.Vars(r)
+ 	pk, err := GetPasskeyRepository().GetOne(vars["id"])
+ 	if err != nil || pk == nil {
+@@ -469,6 +489,10 @@ func (router *AuthRouter) beginPasskeyLogin(w http.ResponseWriter, r *http.Reque
+ 		SendNotFound(w)
+ 		return
+ 	}
++	if !areSecurityFeaturesEnabled(org.ID) {
++		SendForbidden(w)
++		return
++	}
+ 	wa, err := getWebAuthnInstance(org)
+ 	if err != nil {
+ 		log.Println("WebAuthn config error:", err)
+@@ -551,6 +575,10 @@ func (router *AuthRouter) finishPasskeyLogin(w http.ResponseWriter, r *http.Requ
+ 		SendInternalServerError(w)
+ 		return
+ 	}
++	if !areSecurityFeaturesEnabled(sp.OrgID) {
++		SendForbidden(w)
++		return
++	}
+ 	sessionData := sp.SessionData
+ 	loginOrg, err := GetOrganizationRepository().GetOne(sp.OrgID)
+ 	if err != nil {
+diff --git a/server/router/settings-router.go b/server/router/settings-router.go
+index 52b6c7b1..c0b8852b 100644
+--- a/server/router/settings-router.go
++++ b/server/router/settings-router.go
+@@ -287,6 +287,9 @@ func (router *SettingsRouter) isValidSettingNameReadPublic(name string) bool {
+ 		name == SettingFeatureGroups.Name ||
+ 		name == SettingFeatureAuthProviders.Name ||
+ 		name == SettingFeatureKioskMode.Name ||
++		name == SettingFeatureMailNotifications.Name ||
++		name == SettingFeatureSecurityFeatures.Name ||
++		name == SettingFeatureCalDAV.Name ||
+ 		name == SettingSubjectDefault.Name ||
+ 		name == SysSettingOrgPrimaryDomain ||
+ 		name == SysSettingVersion ||
+@@ -312,6 +315,9 @@ func (router *SettingsRouter) isValidSettingNameReadAdmin(name string) bool {
+ 		name == SettingSubjectDefault.Name ||
+ 		name == SettingBookingRetentionDays.Name ||
+ 		name == SettingEnforceTOTP.Name ||
++		name == SettingFeatureMailNotifications.Name ||
++		name == SettingFeatureSecurityFeatures.Name ||
++		name == SettingFeatureCalDAV.Name ||
+ 		name == SettingNewUserDefaultMailNotification.Name ||
+ 		name == SettingTargetUtilizationHoursPerWeek.Name ||
+ 		name == SettingKioskSecret.Name ||
+@@ -346,6 +352,9 @@ func (router *SettingsRouter) isValidSettingNameWrite(name string) bool {
+ 		name == SettingAllowRecurringBookings.Name ||
+ 		name == SettingNewUserDefaultMailNotification.Name ||
+ 		name == SettingEnforceTOTP.Name ||
++		name == SettingFeatureMailNotifications.Name ||
++		name == SettingFeatureSecurityFeatures.Name ||
++		name == SettingFeatureCalDAV.Name ||
+ 		name == SettingHideReports.Name ||
+ 		name == SettingHideStats.Name ||
+ 		name == SettingSubjectDefault.Name ||
+@@ -427,6 +436,15 @@ func (router *SettingsRouter) getSettingType(name string) SettingType {
+ 	if name == SettingAllowRecurringBookings.Name {
+ 		return SettingAllowRecurringBookings.Type
+ 	}
++	if name == SettingFeatureSecurityFeatures.Name {
++		return SettingFeatureSecurityFeatures.Type
++	}
++	if name == SettingFeatureMailNotifications.Name {
++		return SettingFeatureMailNotifications.Type
++	}
++	if name == SettingFeatureCalDAV.Name {
++		return SettingFeatureCalDAV.Type
++	}
+ 	if name == SettingNewUserDefaultMailNotification.Name {
+ 		return SettingNewUserDefaultMailNotification.Type
+ 	}
+diff --git a/server/router/test/auth-router_test.go b/server/router/test/auth-router_test.go
+index 1fff8ece..ff4c5d74 100644
+--- a/server/router/test/auth-router_test.go
++++ b/server/router/test/auth-router_test.go
+@@ -48,6 +48,30 @@ func TestAuthPasswordLogin(t *testing.T) {
+ 	CheckTestString(t, user.Email, resBody2.Email)
+ }
+ 
++func TestAuthPasswordLoginIgnoresTotpWhenSecurityDisabled(t *testing.T) {
++	ClearTestDB()
++
++	org := CreateTestOrg("test.com")
++	user := CreateTestUserInOrg(org)
++	user.HashedPassword = NullString(GetUserRepository().GetHashedPassword(TestPassword))
++	totpSecret, err := EncryptString("JBSWY3DPEHPK3PXP")
++	if err != nil {
++		t.Fatal(err)
++	}
++	user.TotpSecret = NullString(totpSecret)
++	if err := GetUserRepository().Update(user); err != nil {
++		t.Fatal(err)
++	}
++	if err := GetSettingsRepository().Set(org.ID, SettingFeatureSecurityFeatures.Name, "0"); err != nil {
++		t.Fatal(err)
++	}
++
++	payload := "{ \"email\": \"" + user.Email + "\", \"password\": \"" + TestPassword + "\", \"organizationId\": \"" + org.ID + "\" }"
++	req := NewHTTPRequest("POST", "/auth/login", "", bytes.NewBufferString(payload))
++	res := ExecuteTestRequest(req)
++	CheckTestResponseCode(t, http.StatusOK, res.Code)
++}
++
+ func TestAuthPasswordLoginBan(t *testing.T) {
+ 	ClearTestDB()
+ 
+diff --git a/server/router/test/settings-router_test.go b/server/router/test/settings-router_test.go
+index 9d9fc441..1123ad88 100644
+--- a/server/router/test/settings-router_test.go
++++ b/server/router/test/settings-router_test.go
+@@ -70,6 +70,9 @@ func TestSettingsReadPublic(t *testing.T) {
+ 		SettingFeatureNoUserLimit.Name,
+ 		SettingFeatureGroups.Name,
+ 		SettingFeatureCustomDomains.Name,
++		SettingFeatureMailNotifications.Name,
++		SettingFeatureSecurityFeatures.Name,
++		SettingFeatureCalDAV.Name,
+ 		SettingAllowRecurringBookings.Name,
+ 		SettingSubjectDefault.Name,
+ 		SettingEnforceTOTP.Name,
+@@ -140,6 +143,9 @@ func TestSettingsReadAdmin(t *testing.T) {
+ 		SettingFeatureNoUserLimit.Name,
+ 		SettingFeatureGroups.Name,
+ 		SettingFeatureCustomDomains.Name,
++		SettingFeatureMailNotifications.Name,
++		SettingFeatureSecurityFeatures.Name,
++		SettingFeatureCalDAV.Name,
+ 		SettingDefaultTimezone.Name,
+ 		SettingCustomLogoUrl.Name,
+ 		SysSettingOrgSignupDelete,
+@@ -222,6 +228,18 @@ func TestSettingsCRUD(t *testing.T) {
+ 	var resBody2 string
+ 	json.Unmarshal(res.Body.Bytes(), &resBody2)
+ 	CheckTestString(t, "0", resBody2)
++
++	payload = `{"value": "0"}`
++	req = NewHTTPRequest("PUT", "/setting/"+SettingFeatureMailNotifications.Name, loginResponse.UserID, bytes.NewBufferString(payload))
++	res = ExecuteTestRequest(req)
++	CheckTestResponseCode(t, http.StatusNoContent, res.Code)
++
++	req = NewHTTPRequest("GET", "/setting/"+SettingFeatureMailNotifications.Name, loginResponse.UserID, nil)
++	res = ExecuteTestRequest(req)
++	CheckTestResponseCode(t, http.StatusOK, res.Code)
++	var resBody3 string
++	json.Unmarshal(res.Body.Bytes(), &resBody3)
++	CheckTestString(t, "0", resBody3)
+ }
+ 
+ func TestSettingsCRUDMany(t *testing.T) {
+diff --git a/server/router/test/user-preferences-router_test.go b/server/router/test/user-preferences-router_test.go
+index 4d404c6f..9f095ca0 100644
+--- a/server/router/test/user-preferences-router_test.go
++++ b/server/router/test/user-preferences-router_test.go
+@@ -124,6 +124,38 @@ func TestUserPreferencesApprovalNotifications(t *testing.T) {
+ 	json.Unmarshal(res.Body.Bytes(), &resBody3)
+ 	CheckTestString(t, "0", resBody3)
+ }
++
++func TestUserPreferencesMailDisabled(t *testing.T) {
++	ClearTestDB()
++	org := CreateTestOrg("test.com")
++	user := CreateTestUserInOrg(org)
++	loginResponse := LoginTestUser(user.ID)
++	if err := GetSettingsRepository().Set(org.ID, SettingFeatureMailNotifications.Name, "0"); err != nil {
++		t.Fatal(err)
++	}
++
++	req := NewHTTPRequest("GET", "/preference/", loginResponse.UserID, nil)
++	res := ExecuteTestRequest(req)
++	CheckTestResponseCode(t, http.StatusOK, res.Code)
++	var resBody []GetSettingsResponse
++	json.Unmarshal(res.Body.Bytes(), &resBody)
++	for _, item := range resBody {
++		if item.Name == PreferenceMailNotifications.Name ||
++			item.Name == PreferenceApprovalNotifications.Name {
++			t.Fatalf("unexpected mail preference returned: %s", item.Name)
++		}
++	}
++
++	payload := `{"value": "1"}`
++	req = NewHTTPRequest("PUT", "/preference/"+PreferenceMailNotifications.Name, loginResponse.UserID, bytes.NewBufferString(payload))
++	res = ExecuteTestRequest(req)
++	CheckTestResponseCode(t, http.StatusNotFound, res.Code)
++
++	req = NewHTTPRequest("PUT", "/preference/"+PreferenceApprovalNotifications.Name, loginResponse.UserID, bytes.NewBufferString(payload))
++	res = ExecuteTestRequest(req)
++	CheckTestResponseCode(t, http.StatusNotFound, res.Code)
++}
++
+ func TestPreferencesGetNotFound(t *testing.T) {
+ 	ClearTestDB()
+ 	org := CreateTestOrg("test.com")
+@@ -180,3 +212,36 @@ func TestPreferencesCalDavListCalendarsInvalidBody(t *testing.T) {
+ 		t.Fatalf("Expected 400, 404 or 500, got %d", res.Code)
+ 	}
+ }
++
++func TestUserPreferencesCaldavDisabled(t *testing.T) {
++	ClearTestDB()
++	org := CreateTestOrg("test.com")
++	user := CreateTestUserInOrg(org)
++	loginResponse := LoginTestUser(user.ID)
++	if err := GetSettingsRepository().Set(org.ID, SettingFeatureCalDAV.Name, "0"); err != nil {
++		t.Fatal(err)
++	}
++
++	req := NewHTTPRequest("GET", "/preference/", loginResponse.UserID, nil)
++	res := ExecuteTestRequest(req)
++	CheckTestResponseCode(t, http.StatusOK, res.Code)
++	var resBody []GetSettingsResponse
++	json.Unmarshal(res.Body.Bytes(), &resBody)
++	for _, item := range resBody {
++		if item.Name == PreferenceCalDAVURL.Name ||
++			item.Name == PreferenceCalDAVUser.Name ||
++			item.Name == PreferenceCalDAVPass.Name ||
++			item.Name == PreferenceCalDAVPath.Name {
++			t.Fatalf("unexpected caldav preference returned: %s", item.Name)
++		}
++	}
++
++	payload := `{"value": "1"}`
++	req = NewHTTPRequest("PUT", "/preference/"+PreferenceCalDAVURL.Name, loginResponse.UserID, bytes.NewBufferString(payload))
++	res = ExecuteTestRequest(req)
++	CheckTestResponseCode(t, http.StatusNotFound, res.Code)
++
++	req = NewHTTPRequest("POST", "/preference/caldav/listCalendars", loginResponse.UserID, bytes.NewBufferString(`{"url":"https://example.com","username":"u","password":"p"}`))
++	res = ExecuteTestRequest(req)
++	CheckTestResponseCode(t, http.StatusForbidden, res.Code)
++}
+diff --git a/server/router/test/user-router_test.go b/server/router/test/user-router_test.go
+index 33d8097e..57c9d0a1 100644
+--- a/server/router/test/user-router_test.go
++++ b/server/router/test/user-router_test.go
+@@ -473,6 +473,22 @@ func TestUserCreateWithInvitation(t *testing.T) {
+ 	CheckTestBool(t, true, newUser != nil)
+ }
+ 
++func TestUserCreateInvitationDisabled(t *testing.T) {
++	ClearTestDB()
++	org := CreateTestOrg("test.com")
++	admin := CreateTestUserOrgAdmin(org)
++	loginResponse := LoginTestUser(admin.ID)
++	if err := GetSettingsRepository().Set(org.ID, SettingFeatureMailNotifications.Name, "0"); err != nil {
++		t.Fatal(err)
++	}
++
++	username := uuid.New().String() + "@test.com"
++	payload := "{\"email\": \"" + username + "\", \"firstname\": \"John\", \"lastname\": \"Doe\", \"sendInvitation\": true, \"role\": " + strconv.Itoa(int(UserRoleUser)) + "}"
++	req := NewHTTPRequest("POST", "/user/", loginResponse.UserID, bytes.NewBufferString(payload))
++	res := ExecuteTestRequest(req)
++	CheckTestResponseCode(t, http.StatusForbidden, res.Code)
++}
++
+ func TestUserUpdateAuthMethod(t *testing.T) {
+ 	ClearTestDB()
+ 	org := CreateTestOrg("test.com")
+@@ -539,6 +555,28 @@ func TestUserUpdateAuthMethod(t *testing.T) {
+ 	CheckTestString(t, "", resBody3.AuthProviderID)
+ }
+ 
++func TestUserUpdateInvitationDisabled(t *testing.T) {
++	ClearTestDB()
++	org := CreateTestOrg("test.com")
++	admin := CreateTestUserOrgAdmin(org)
++	loginResponse := LoginTestUser(admin.ID)
++	if err := GetSettingsRepository().Set(org.ID, SettingFeatureMailNotifications.Name, "0"); err != nil {
++		t.Fatal(err)
++	}
++
++	username := uuid.New().String() + "@test.com"
++	payload := "{\"email\": \"" + username + "\", \"firstname\": \"John\", \"lastname\": \"Doe\", \"password\": \"" + TestPassword + "\", \"role\": " + strconv.Itoa(int(UserRoleUser)) + "}"
++	req := NewHTTPRequest("POST", "/user/", loginResponse.UserID, bytes.NewBufferString(payload))
++	res := ExecuteTestRequest(req)
++	CheckTestResponseCode(t, http.StatusCreated, res.Code)
++	userID := res.Header().Get("X-Object-Id")
++
++	payload = "{\"email\": \"" + username + "\", \"firstname\": \"John\", \"lastname\": \"Doe\", \"sendInvitation\": true, \"role\": " + strconv.Itoa(int(UserRoleUser)) + "}"
++	req = NewHTTPRequest("PUT", "/user/"+userID, loginResponse.UserID, bytes.NewBufferString(payload))
++	res = ExecuteTestRequest(req)
++	CheckTestResponseCode(t, http.StatusForbidden, res.Code)
++}
++
+ func TestUserCompleteInvitation(t *testing.T) {
+ 	ClearTestDB()
+ 	org := CreateTestOrg("test.com")
+@@ -709,6 +747,28 @@ func TestUserAdminResetTotpForbidden(t *testing.T) {
+ 	CheckTestResponseCode(t, http.StatusForbidden, res.Code)
+ }
+ 
++func TestUserFeatureDisabled(t *testing.T) {
++	ClearTestDB()
++	org := CreateTestOrg("test.com")
++	user := CreateTestUserInOrg(org)
++	loginResponse := LoginTestUser(user.ID)
++	if err := GetSettingsRepository().Set(org.ID, SettingFeatureSecurityFeatures.Name, "0"); err != nil {
++		t.Fatal(err)
++	}
++
++	req := NewHTTPRequest("GET", "/user/passkey/", loginResponse.UserID, nil)
++	res := ExecuteTestRequest(req)
++	CheckTestResponseCode(t, http.StatusForbidden, res.Code)
++
++	req = NewHTTPRequest("GET", "/user/totp/generate", loginResponse.UserID, nil)
++	res = ExecuteTestRequest(req)
++	CheckTestResponseCode(t, http.StatusForbidden, res.Code)
++
++	req = NewHTTPRequest("POST", "/user/totp/disable", loginResponse.UserID, nil)
++	res = ExecuteTestRequest(req)
++	CheckTestResponseCode(t, http.StatusForbidden, res.Code)
++}
++
+ func TestUserSetPasswordForbidden(t *testing.T) {
+ 	ClearTestDB()
+ 	org := CreateTestOrg("test.com")
+diff --git a/server/router/user-preferences-router.go b/server/router/user-preferences-router.go
+index 655bf384..1906c8bd 100644
+--- a/server/router/user-preferences-router.go
++++ b/server/router/user-preferences-router.go
+@@ -27,6 +27,61 @@ type ListCaldavCalendarsResponse struct {
+ 	Name string `json:"name"`
+ }
+ 
++func areCaldavEnabled(organizationID string) bool {
++	enabled, err := GetSettingsRepository().GetBool(organizationID, SettingFeatureCalDAV.Name)
++	if err != nil {
++		return true
++	}
++	return enabled
++}
++
++func areSecurityFeaturesEnabled(organizationID string) bool {
++	enabled, err := GetSettingsRepository().GetBool(organizationID, SettingFeatureSecurityFeatures.Name)
++	if err != nil {
++		return true
++	}
++	return enabled
++}
++
++func areMailFeaturesEnabled(organizationID string) bool {
++	enabled, err := GetSettingsRepository().GetBool(organizationID, SettingFeatureMailNotifications.Name)
++	if err != nil {
++		return true
++	}
++	return enabled
++}
++
++func isCoreUserPreferenceName(name string) bool {
++	return name == PreferenceEnterTime.Name ||
++		name == PreferenceWorkdayStart.Name ||
++		name == PreferenceWorkdayEnd.Name ||
++		name == PreferenceWorkdays.Name ||
++		name == PreferenceLocation.Name
++}
++
++func isExtraUserPreferenceName(name string) bool {
++	return name == PreferenceBookedColor.Name ||
++		name == PreferenceBuddyBookedColor.Name ||
++		name == PreferenceDisallowedColor.Name ||
++		name == PreferenceSelfBookedColor.Name ||
++		name == PreferencePartiallyBookedColor.Name ||
++		name == PreferenceNotBookedColor.Name ||
++		name == Preference24HourTime.Name ||
++		name == PreferenceDateFormat.Name
++}
++
++func isMailPreferenceName(name string) bool {
++	return name == PreferenceMailNotifications.Name ||
++		name == PreferenceApprovalNotifications.Name
++}
++
++func isCaldavPreferenceName(name string) bool {
++	return name == PreferenceCalDAVURL.Name ||
++		name == PreferenceCalDAVUser.Name ||
++		name == PreferenceCalDAVPass.Name ||
++		name == PreferenceCalDAVPath.Name
++}
++
+ func (router *UserPreferencesRouter) SetupRoutes(s *mux.Router) {
+ 	s.HandleFunc("/caldav/listCalendars", router.caldavListCalendars).Methods("POST")
+ 	s.HandleFunc("/{name}", router.getPreference).Methods("GET")
+@@ -41,6 +96,11 @@ func (router *UserPreferencesRouter) caldavListCalendars(w http.ResponseWriter,
+ 		SendBadRequest(w)
+ 		return
+ 	}
++	user := GetRequestUser(r)
++	if !areCaldavEnabled(user.OrganizationID) {
++		SendForbidden(w)
++		return
++	}
+ 	if !ValidateURL(m.URL) {
+ 		SendBadRequest(w)
+ 		return
+@@ -65,7 +125,7 @@ func (router *UserPreferencesRouter) caldavListCalendars(w http.ResponseWriter,
+ func (router *UserPreferencesRouter) getPreference(w http.ResponseWriter, r *http.Request) {
+ 	user := GetRequestUser(r)
+ 	vars := mux.Vars(r)
+-	if !router.isValidPreferenceName(vars["name"]) {
++	if !router.isValidPreferenceName(vars["name"], user.OrganizationID) {
+ 		SendNotFound(w)
+ 		return
+ 	}
+@@ -86,7 +146,7 @@ func (router *UserPreferencesRouter) setPreference(w http.ResponseWriter, r *htt
+ 		return
+ 	}
+ 	vars := mux.Vars(r)
+-	if !router.isValidPreferenceName(vars["name"]) {
++	if !router.isValidPreferenceName(vars["name"], user.OrganizationID) {
+ 		SendNotFound(w)
+ 		return
+ 	}
+@@ -117,6 +177,9 @@ func (router *UserPreferencesRouter) getAll(w http.ResponseWriter, r *http.Reque
+ 	}
+ 	res := []*GetSettingsResponse{}
+ 	for _, e := range list {
++		if !router.isValidPreferenceName(e.Name, user.OrganizationID) {
++			continue
++		}
+ 		m := router.copyToRestModel(e)
+ 		res = append(res, m)
+ 	}
+@@ -132,7 +195,7 @@ func (router *UserPreferencesRouter) setAll(w http.ResponseWriter, r *http.Reque
+ 		return
+ 	}
+ 	for _, e := range list {
+-		if !router.isValidPreferenceName(e.Name) {
++		if !router.isValidPreferenceName(e.Name, user.OrganizationID) {
+ 			SendNotFound(w)
+ 			return
+ 		}
+@@ -166,29 +229,20 @@ func (router *UserPreferencesRouter) doSetOne(userID, name, value string) error
+ 	return err
+ }
+ 
+-func (router *UserPreferencesRouter) isValidPreferenceName(name string) bool {
++func (router *UserPreferencesRouter) isValidPreferenceName(name string, organizationID string) bool {
+ 	if len(name) > 50 {
+ 		return false
+ 	}
+-	if name == PreferenceEnterTime.Name ||
+-		name == PreferenceWorkdayStart.Name ||
+-		name == PreferenceWorkdayEnd.Name ||
+-		name == PreferenceWorkdays.Name ||
+-		name == PreferenceBookedColor.Name ||
+-		name == PreferenceBuddyBookedColor.Name ||
+-		name == PreferenceDisallowedColor.Name ||
+-		name == PreferenceSelfBookedColor.Name ||
+-		name == PreferencePartiallyBookedColor.Name ||
+-		name == PreferenceNotBookedColor.Name ||
+-		name == PreferenceLocation.Name ||
+-		name == PreferenceCalDAVURL.Name ||
+-		name == PreferenceCalDAVUser.Name ||
+-		name == PreferenceCalDAVPass.Name ||
+-		name == PreferenceCalDAVPath.Name ||
+-		name == PreferenceMailNotifications.Name ||
+-		name == PreferenceApprovalNotifications.Name ||
+-		name == Preference24HourTime.Name ||
+-		name == PreferenceDateFormat.Name {
++	if isCoreUserPreferenceName(name) {
++		return true
++	}
++	if isExtraUserPreferenceName(name) {
++		return true
++	}
++	if isMailPreferenceName(name) && areMailFeaturesEnabled(organizationID) {
++		return true
++	}
++	if isCaldavPreferenceName(name) && areCaldavEnabled(organizationID) {
+ 		return true
+ 	}
+ 	return false
+diff --git a/server/router/user-router.go b/server/router/user-router.go
+index 8af7ba0f..0d868b6a 100644
+--- a/server/router/user-router.go
++++ b/server/router/user-router.go
+@@ -220,6 +220,10 @@ func (router *UserRouter) disableTotp(w http.ResponseWriter, r *http.Request) {
+ 		SendUnauthorized(w)
+ 		return
+ 	}
++	if !areSecurityFeaturesEnabled(user.OrganizationID) {
++		SendForbidden(w)
++		return
++	}
+ 	enforceTotp, _ := GetSettingsRepository().GetBool(user.OrganizationID, SettingEnforceTOTP.Name)
+ 	if enforceTotp {
+ 		SendForbidden(w)
+@@ -240,6 +244,10 @@ func (router *UserRouter) getTotpSecret(w http.ResponseWriter, r *http.Request)
+ 		SendUnauthorized(w)
+ 		return
+ 	}
++	if !areSecurityFeaturesEnabled(user.OrganizationID) {
++		SendForbidden(w)
++		return
++	}
+ 
+ 	vars := mux.Vars(r)
+ 	stateID := vars["stateId"]
+@@ -280,6 +288,10 @@ func (router *UserRouter) validateTotp(w http.ResponseWriter, r *http.Request) {
+ 		SendUnauthorized(w)
+ 		return
+ 	}
++	if !areSecurityFeaturesEnabled(user.OrganizationID) {
++		SendForbidden(w)
++		return
++	}
+ 	authState, err := GetAuthStateRepository().GetOne(m.StateID)
+ 	if err != nil || authState == nil || authState.AuthStateType != AuthTotpSetup || authState.AuthProviderID != user.ID {
+ 		SendNotFound(w)
+@@ -331,6 +343,10 @@ func (router *UserRouter) generateTotp(w http.ResponseWriter, r *http.Request) {
+ 		SendUnauthorized(w)
+ 		return
+ 	}
++	if !areSecurityFeaturesEnabled(user.OrganizationID) {
++		SendForbidden(w)
++		return
++	}
+ 	org, err := GetOrganizationRepository().GetOne(user.OrganizationID)
+ 	if org == nil || err != nil {
+ 		log.Println(err)
+@@ -711,6 +727,10 @@ func (router *UserRouter) update(w http.ResponseWriter, r *http.Request) {
+ 			return
+ 		}
+ 	}
++	if m.SendInvitation && !areMailFeaturesEnabled(e.OrganizationID) {
++		SendForbidden(w)
++		return
++	}
+ 	if err := GetUserRepository().Update(eNew); err != nil {
+ 		log.Println(err)
+ 		SendInternalServerError(w)
+@@ -827,6 +847,10 @@ func (router *UserRouter) create(w http.ResponseWriter, r *http.Request) {
+ 		SendAlreadyExistsCode(w, ResponseCodeUserAlreadyExists)
+ 		return
+ 	}
++	if m.SendInvitation && !areMailFeaturesEnabled(e.OrganizationID) {
++		SendForbidden(w)
++		return
++	}
+ 	if err := GetUserRepository().Create(e); err != nil {
+ 		log.Println(err)
+ 		SendInternalServerError(w)
+-- 
+2.54.0
+

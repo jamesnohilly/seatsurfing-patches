@@ -1,0 +1,461 @@
+From f7d54b38bd41fa88f0dba68e6594557d8808fdc4 Mon Sep 17 00:00:00 2001
+From: James Nohilly <184946269+jamesnohilly@users.noreply.github.com>
+Date: Mon, 25 May 2026 15:50:23 +0100
+Subject: [PATCH] feat(admin-ui): add configurable mail and security feature
+ toggles
+
+---
+ ui/src/components/RuntimeConfig.ts     | 12 +++++
+ ui/src/pages/admin/approvals/index.tsx |  9 +++-
+ ui/src/pages/admin/settings/index.tsx  | 70 ++++++++++++++++++++++++++
+ ui/src/pages/admin/users/[id].tsx      | 70 +++++++++++++++-----------
+ ui/src/pages/preferences.tsx           | 56 ++++++++++++++-------
+ 5 files changed, 167 insertions(+), 50 deletions(-)
+
+diff --git a/ui/src/components/RuntimeConfig.ts b/ui/src/components/RuntimeConfig.ts
+index 5ebb2ac1..7dda429c 100644
+--- a/ui/src/components/RuntimeConfig.ts
++++ b/ui/src/components/RuntimeConfig.ts
+@@ -23,6 +23,9 @@ interface RuntimeUserInfos {
+   maxHoursPartiallyBooked: number;
+   maxHoursPartiallyBookedEnabled: boolean;
+   featureRecurringBookings: boolean;
++  featureMailNotifications: boolean;
++  featureSecurityFeatures: boolean;
++  featureCalDAV: boolean;
+   organizationId: string;
+   superAdmin: boolean;
+   spaceAdmin: boolean;
+@@ -75,6 +78,9 @@ export default class RuntimeConfig {
+       showNames: false,
+       defaultTimezone: "",
+       featureRecurringBookings: false,
++      featureMailNotifications: true,
++      featureSecurityFeatures: true,
++      featureCalDAV: true,
+       organizationId: "",
+       superAdmin: false,
+       spaceAdmin: false,
+@@ -172,6 +178,12 @@ export default class RuntimeConfig {
+             RuntimeConfig.INFOS.defaultTimezone = s.value;
+           if (s.name === "feature_recurring_bookings")
+             RuntimeConfig.INFOS.featureRecurringBookings = s.value === "1";
++          if (s.name === "feature_mail_notifications")
++            RuntimeConfig.INFOS.featureMailNotifications = s.value === "1";
++          if (s.name === "feature_security_features")
++            RuntimeConfig.INFOS.featureSecurityFeatures = s.value === "1";
++          if (s.name === "feature_caldav")
++            RuntimeConfig.INFOS.featureCalDAV = s.value === "1";
+           if (s.name === "allow_recurring_bookings")
+             RuntimeConfig.INFOS.allowRecurringBookings = s.value === "1";
+           if (s.name === "_sys_admin_menu_items")
+diff --git a/ui/src/pages/admin/approvals/index.tsx b/ui/src/pages/admin/approvals/index.tsx
+index bcf0814a..b894be5c 100644
+--- a/ui/src/pages/admin/approvals/index.tsx
++++ b/ui/src/pages/admin/approvals/index.tsx
+@@ -71,6 +71,10 @@ class Approvals extends React.Component<Props, State> {
+   };
+ 
+   loadApprovalNotificationPreference = () => {
++    if (!RuntimeConfig.INFOS.featureMailNotifications) {
++      this.setState({ loadingPreference: false });
++      return;
++    }
+     UserPreference.getOne("approval_notifications")
+       .then((value) => {
+         this.setState({
+@@ -225,10 +229,11 @@ class Approvals extends React.Component<Props, State> {
+     }
+ 
+     const rows = this.state.data.map((item) => this.renderItem(item));
++    const mailFeaturesEnabled = RuntimeConfig.INFOS.featureMailNotifications;
+     if (rows.length === 0) {
+       return (
+         <FullLayout headline={this.props.t("approvals")} buttons={buttons}>
+-          <div className="mb-3">
++          <div className="mb-3" hidden={!mailFeaturesEnabled}>
+             <Form.Check
+               type="switch"
+               id="approvalNotificationsSwitch"
+@@ -246,7 +251,7 @@ class Approvals extends React.Component<Props, State> {
+     }
+     return (
+       <FullLayout headline={this.props.t("approvals")} buttons={buttons}>
+-        <div className="margin-bottom-15">
++        <div className="margin-bottom-15" hidden={!mailFeaturesEnabled}>
+           <Form.Check
+             type="switch"
+             id="approvalNotificationsSwitch"
+diff --git a/ui/src/pages/admin/settings/index.tsx b/ui/src/pages/admin/settings/index.tsx
+index b0dc479c..d77dd2f4 100644
+--- a/ui/src/pages/admin/settings/index.tsx
++++ b/ui/src/pages/admin/settings/index.tsx
+@@ -77,6 +77,9 @@ interface State {
+   featureCustomDomains: boolean;
+   allowRecurringBookings: boolean;
+   newUserDefaultMailNotification: boolean;
++  featureMailNotifications: boolean;
++  featureSecurityFeatures: boolean;
++  featureCalDAV: boolean;
+   enforceTOTP: boolean;
+   kioskSecret: string;
+   kioskModeEnabled: boolean;
+@@ -135,6 +138,9 @@ class Settings extends React.Component<Props, State> {
+       featureCustomDomains: false,
+       allowRecurringBookings: true,
+       newUserDefaultMailNotification: false,
++      featureMailNotifications: true,
++      featureSecurityFeatures: true,
++      featureCalDAV: true,
+       enforceTOTP: false,
+       kioskSecret: "",
+       kioskModeEnabled: false,
+@@ -234,6 +240,12 @@ class Settings extends React.Component<Props, State> {
+           state.featureCustomDomains = s.value === "1";
+         if (s.name === "allow_recurring_bookings")
+           state.allowRecurringBookings = s.value === "1";
++        if (s.name === "feature_mail_notifications")
++          state.featureMailNotifications = s.value === "1";
++        if (s.name === "feature_security_features")
++          state.featureSecurityFeatures = s.value === "1";
++        if (s.name === "feature_caldav")
++          state.featureCalDAV = s.value === "1";
+         if (s.name === "new_user_default_mail_notification")
+           state.newUserDefaultMailNotification = s.value === "1";
+         if (s.name === "enforce_totp") state.enforceTOTP = s.value === "1";
+@@ -376,6 +388,18 @@ class Settings extends React.Component<Props, State> {
+         "allow_recurring_bookings",
+         this.state.allowRecurringBookings ? "1" : "0",
+       ),
++      new OrgSettings(
++        "feature_mail_notifications",
++        this.state.featureMailNotifications ? "1" : "0",
++      ),
++      new OrgSettings(
++        "feature_security_features",
++        this.state.featureSecurityFeatures ? "1" : "0",
++      ),
++      new OrgSettings(
++        "feature_caldav",
++        this.state.featureCalDAV ? "1" : "0",
++      ),
+       new OrgSettings(
+         "new_user_default_mail_notification",
+         this.state.newUserDefaultMailNotification ? "1" : "0",
+@@ -1090,6 +1114,52 @@ class Settings extends React.Component<Props, State> {
+             </Col>
+           </Form.Group>
+           <Form.Group as={Row}>
++            <Col sm="6">
++              <Form.Check
++                type="checkbox"
++                id="check-featureSecurityFeatures"
++                label={this.props.t("featureSecurityFeatures")}
++                checked={this.state.featureSecurityFeatures}
++                onChange={(e: any) =>
++                  this.setState({
++                    featureSecurityFeatures: e.target.checked,
++                  })
++                }
++              />
++            </Col>
++          </Form.Group>
++          <Form.Group as={Row}>
++            <Col sm="6">
++              <Form.Check
++                type="checkbox"
++                id="check-featureCalDAV"
++                label={this.props.t("featureCalDAV")}
++                checked={this.state.featureCalDAV}
++                onChange={(e: any) =>
++                  this.setState({ featureCalDAV: e.target.checked })
++                }
++              />
++            </Col>
++          </Form.Group>
++          <Form.Group as={Row}>
++            <Col sm="6">
++              <Form.Check
++                type="checkbox"
++                id="check-featureMailNotifications"
++                label={this.props.t("featureMailNotifications")}
++                checked={this.state.featureMailNotifications}
++                onChange={(e: any) =>
++                  this.setState({
++                    featureMailNotifications: e.target.checked,
++                  })
++                }
++              />
++            </Col>
++          </Form.Group>
++          <Form.Group
++            as={Row}
++            hidden={!RuntimeConfig.INFOS.featureMailNotifications}
++          >
+             <Col sm="6">
+               <Form.Check
+                 type="checkbox"
+diff --git a/ui/src/pages/admin/users/[id].tsx b/ui/src/pages/admin/users/[id].tsx
+index 555f3383..fbd70de1 100644
+--- a/ui/src/pages/admin/users/[id].tsx
++++ b/ui/src/pages/admin/users/[id].tsx
+@@ -144,6 +144,12 @@ class EditUser extends React.Component<Props, State> {
+         } else if (user.requirePassword) {
+           authMethod = "password";
+         }
++        if (
++          !RuntimeConfig.INFOS.featureMailNotifications &&
++          authMethod === "invitation"
++        ) {
++          authMethod = "password";
++        }
+         const isServiceAccount =
+           user.role === User.UserRoleServiceAccountRO ||
+           user.role === User.UserRoleServiceAccountRW;
+@@ -176,13 +182,14 @@ class EditUser extends React.Component<Props, State> {
+       error: false,
+       saved: false,
+     });
++    const mailFeaturesEnabled = RuntimeConfig.INFOS.featureMailNotifications;
+     this.entity.email = this.state.email;
+     this.entity.firstname = this.state.firstname;
+     this.entity.lastname = this.state.lastname;
+     this.entity.role = this.state.role;
+ 
+     // Set authentication fields based on selected auth method
+-    if (this.state.authMethod === "invitation") {
++    if (mailFeaturesEnabled && this.state.authMethod === "invitation") {
+       // Only send invitation if email changed or explicitly requested
+       const emailChanged = this.state.email !== this.state.originalEmail;
+       const isNewUser = !this.entity.id;
+@@ -360,6 +367,7 @@ class EditUser extends React.Component<Props, State> {
+       );
+     }
+     const isOwnUser = RuntimeConfig.INFOS.userId === this.entity.id;
++    const mailFeaturesEnabled = RuntimeConfig.INFOS.featureMailNotifications;
+     let roleSelect = <></>;
+     if (!isOwnUser && this.adminUserRole >= this.state.role) {
+       roleSelect = (
+@@ -556,14 +564,16 @@ class EditUser extends React.Component<Props, State> {
+                   onChange={() => this.setState({ authMethod: "provider" })}
+                 />
+               )}
+-              <Form.Check
+-                type="radio"
+-                id="auth-method-invitation"
+-                name="authMethod"
+-                label={this.props.t("authMethodInvitation")}
+-                checked={this.state.authMethod === "invitation"}
+-                onChange={() => this.setState({ authMethod: "invitation" })}
+-              />
++              {mailFeaturesEnabled && (
++                <Form.Check
++                  type="radio"
++                  id="auth-method-invitation"
++                  name="authMethod"
++                  label={this.props.t("authMethodInvitation")}
++                  checked={this.state.authMethod === "invitation"}
++                  onChange={() => this.setState({ authMethod: "invitation" })}
++                />
++              )}
+             </Col>
+           </Form.Group>
+ 
+@@ -622,26 +632,28 @@ class EditUser extends React.Component<Props, State> {
+           </Form.Group>
+ 
+           {/* Resend invitation checkbox for existing users with invitation auth method */}
+-          <Form.Group
+-            as={Row}
+-            hidden={
+-              this.isServiceAccount(this.state.role) ||
+-              !this.entity.id ||
+-              this.state.authMethod !== "invitation"
+-            }
+-          >
+-            <Col sm="6">
+-              <Form.Check
+-                type="checkbox"
+-                id="check-resendInvitation"
+-                label={this.props.t("resendInvitation")}
+-                checked={this.state.resendInvitation}
+-                onChange={(e: any) =>
+-                  this.setState({ resendInvitation: e.target.checked })
+-                }
+-              />
+-            </Col>
+-          </Form.Group>
++          {mailFeaturesEnabled && (
++            <Form.Group
++              as={Row}
++              hidden={
++                this.isServiceAccount(this.state.role) ||
++                !this.entity.id ||
++                this.state.authMethod !== "invitation"
++              }
++            >
++              <Col sm="6">
++                <Form.Check
++                  type="checkbox"
++                  id="check-resendInvitation"
++                  label={this.props.t("resendInvitation")}
++                  checked={this.state.resendInvitation}
++                  onChange={(e: any) =>
++                    this.setState({ resendInvitation: e.target.checked })
++                  }
++                />
++              </Col>
++            </Form.Group>
++          )}
+ 
+           {/* Password field */}
+           <Form.Group
+diff --git a/ui/src/pages/preferences.tsx b/ui/src/pages/preferences.tsx
+index e063e109..701c6a09 100644
+--- a/ui/src/pages/preferences.tsx
++++ b/ui/src/pages/preferences.tsx
+@@ -248,17 +248,23 @@ class Preferences extends React.Component<Props, State> {
+       new UserPreference("workday_start", this.state.workdayStart.toString()),
+       new UserPreference("workday_end", this.state.workdayEnd.toString()),
+       new UserPreference("workdays", workdays.join(",")),
+-      new UserPreference(
+-        "mail_notifications",
+-        this.state.mailNotifications ? "1" : "0",
+-      ),
++      new UserPreference("location_id", this.state.locationId),
++    ];
++    if (RuntimeConfig.INFOS.featureMailNotifications) {
++      payload.push(
++        new UserPreference(
++          "mail_notifications",
++          this.state.mailNotifications ? "1" : "0",
++        ),
++      );
++    }
++    payload.push(
+       new UserPreference(
+         "use_24_hour_time",
+         this.state.use24HourTime ? "1" : "0",
+       ),
+-      new UserPreference("location_id", this.state.locationId),
+-      new UserPreference("date_format", this.state.dateFormat),
+-    ];
++    );
++    payload.push(new UserPreference("date_format", this.state.dateFormat));
+     UserPreference.setAll(payload)
+       .then(() => {
+         RuntimeConfig.loadUserPreferences().then(() => {
+@@ -505,6 +511,13 @@ class Preferences extends React.Component<Props, State> {
+ 
+     const credentials = Ajax.PERSISTER.readCredentialsFromLocalStorage();
+     const profilePageUrl = credentials.profilePageUrl;
++    const mailFeaturesEnabled = RuntimeConfig.INFOS.featureMailNotifications;
++    const securityFeaturesEnabled = RuntimeConfig.INFOS.featureSecurityFeatures;
++    const caldavEnabled = RuntimeConfig.INFOS.featureCalDAV;
++    const activeTab =
++      (!caldavEnabled && this.state.activeTab === "tab-integrations")
++        ? "tab-bookings"
++        : this.state.activeTab;
+ 
+     return (
+       <>
+@@ -513,7 +526,7 @@ class Preferences extends React.Component<Props, State> {
+           <div className="container-center-inner-wide">
+             <Nav
+               variant="underline"
+-              activeKey={this.state.activeTab}
++              activeKey={activeTab}
+               onSelect={(key) => {
+                 if (key) {
+                   this.setState({ activeTab: key, error: false, saved: false });
+@@ -550,7 +563,7 @@ class Preferences extends React.Component<Props, State> {
+                   {this.props.t("security")}
+                 </Nav.Link>
+               </Nav.Item>
+-              <Nav.Item>
++              <Nav.Item hidden={!caldavEnabled}>
+                 <Nav.Link eventKey="tab-integrations">
+                   {this.props.t("integrations")}
+                 </Nav.Link>
+@@ -564,7 +577,7 @@ class Preferences extends React.Component<Props, State> {
+ 
+             <Form
+               onSubmit={this.onSubmit}
+-              hidden={this.state.activeTab !== "tab-bookings"}
++              hidden={activeTab !== "tab-bookings"}
+             >
+               <Form.Group className="margin-top-15">
+                 <Form.Label htmlFor="enterTime">
+@@ -658,7 +671,10 @@ class Preferences extends React.Component<Props, State> {
+                   ))}
+                 </div>
+               </Form.Group>
+-              <Form.Group className="margin-top-15">
++              <Form.Group
++                className="margin-top-15"
++                hidden={!mailFeaturesEnabled}
++              >
+                 <Form.Label htmlFor="mailNotifications">
+                   {this.props.t("mailNotifications")}
+                 </Form.Label>
+@@ -738,7 +754,7 @@ class Preferences extends React.Component<Props, State> {
+ 
+             <Form
+               onSubmit={this.onSubmitColors}
+-              hidden={this.state.activeTab !== "tab-style"}
++              hidden={activeTab !== "tab-style"}
+               className="form-colors"
+             >
+               <h5 className="margin-top-15">{this.props.t("bookingcolors")}</h5>
+@@ -771,7 +787,7 @@ class Preferences extends React.Component<Props, State> {
+ 
+             <Form
+               onSubmit={this.onSubmitSecurity}
+-              hidden={this.state.activeTab !== "tab-security"}
++              hidden={activeTab !== "tab-security"}
+             >
+               <h5 className="margin-top-15">{this.props.t("password")}</h5>
+               <Form.Group className="margin-top-15">
+@@ -807,15 +823,17 @@ class Preferences extends React.Component<Props, State> {
+             </Form>
+             <TotpSettings
+               hidden={
+-                this.state.activeTab !== "tab-security" ||
+-                RuntimeConfig.INFOS.idpLogin
++                activeTab !== "tab-security" ||
++                RuntimeConfig.INFOS.idpLogin ||
++                !securityFeaturesEnabled
+               }
+               t={this.props.t}
+             />
+             <PasskeySettings
+               hidden={
+-                this.state.activeTab !== "tab-security" ||
+-                RuntimeConfig.INFOS.idpLogin
++                activeTab !== "tab-security" ||
++                RuntimeConfig.INFOS.idpLogin ||
++                !securityFeaturesEnabled
+               }
+               t={this.props.t}
+               onPasskeyAdded={() => {
+@@ -827,7 +845,7 @@ class Preferences extends React.Component<Props, State> {
+                 });
+               }}
+             />
+-            <div hidden={this.state.activeTab !== "tab-security"}>
++            <div hidden={activeTab !== "tab-security"}>
+               <h5 className="mt-5">{this.props.t("activeSessions")}</h5>
+               {this.state.activeSessions.length === 0 ? (
+                 <p>{this.props.t("noActiveSessions")}</p>
+@@ -923,7 +941,7 @@ class Preferences extends React.Component<Props, State> {
+ 
+             <Form
+               onSubmit={this.saveCaldavSettings}
+-              hidden={this.state.activeTab !== "tab-integrations"}
++              hidden={activeTab !== "tab-integrations" || !caldavEnabled}
+             >
+               <h5 className="margin-top-15">
+                 {this.props.t("caldavCalendar")}
+-- 
+2.54.0
+

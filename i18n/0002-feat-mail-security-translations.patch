@@ -1,0 +1,256 @@
+From 633de3e161df754f5c6e60451d52dbfcacaf5974 Mon Sep 17 00:00:00 2001
+From: James Nohilly <184946269+jamesnohilly@users.noreply.github.com>
+Date: Mon, 25 May 2026 15:51:38 +0100
+Subject: [PATCH] feat(i18n): add mail and feature toggle translations
+
+---
+ ui/i18n/translations.de.json    | 5 ++++-
+ ui/i18n/translations.en-GB.json | 6 ++++++
+ ui/i18n/translations.en-US.json | 6 ++++++
+ ui/i18n/translations.es.json    | 5 ++++-
+ ui/i18n/translations.et.json    | 5 ++++-
+ ui/i18n/translations.fi.json    | 5 ++++-
+ ui/i18n/translations.fr.json    | 5 ++++-
+ ui/i18n/translations.he.json    | 5 ++++-
+ ui/i18n/translations.hu.json    | 5 ++++-
+ ui/i18n/translations.it.json    | 5 ++++-
+ ui/i18n/translations.nl.json    | 5 ++++-
+ ui/i18n/translations.pl.json    | 5 ++++-
+ ui/i18n/translations.pt.json    | 5 ++++-
+ ui/i18n/translations.ro.json    | 5 ++++-
+ ui/i18n/translations.zh-TW.json | 5 ++++-
+ 15 files changed, 64 insertions(+), 13 deletions(-)
+
+diff --git a/ui/i18n/translations.de.json b/ui/i18n/translations.de.json
+index fd45618a..eb1325bd 100644
+--- a/ui/i18n/translations.de.json
++++ b/ui/i18n/translations.de.json
+@@ -483,5 +483,8 @@
+   "cloudHintLink": "Erfahre mehr über Seatsurfing Professional",
+   "sponsorLink": "Unterstütze uns als Sponsor",
+   "shapeRect": "Rechteck",
+-  "shapeCircle": "Kreis/Oval"
++  "shapeCircle": "Kreis/Oval",
++  "featureCalDAV": "Enable CalDAV integration",
++  "featureMailNotifications": "Enable mail notifications",
++  "featureSecurityFeatures": "Enable security extras"
+ }
+diff --git a/ui/i18n/translations.en-GB.json b/ui/i18n/translations.en-GB.json
+index ea8b33c3..f5dffb92 100644
+--- a/ui/i18n/translations.en-GB.json
++++ b/ui/i18n/translations.en-GB.json
+@@ -171,6 +171,9 @@
+   "errorAuthProviderNameExists": "The auth provider name already exists.",
+   "every": "Every",
+   "featureCurrentlyUnavailable": "This feature is currently unavailable.",
++  "featureMailNotifications": "Enable mail notifications",
++  "featureSecurityFeatures": "Enable TOTP and passkeys",
++  "featureCalDAV": "Enable CalDAV integration",
+   "filter": "Filter",
+   "findYourPlace": "Find your space.",
+   "firstname": "Firstname",
+@@ -360,6 +363,9 @@
+   "style": "Style",
+   "allowRecurringBookings": "Allow recurring bookings",
+   "newUserDefaultMailNotification": "Enable mail notification for new users by default",
++  "featureMailNotifications": "Enable mail notifications",
++  "featureSecurityFeatures": "Enable security extras",
++  "featureCalDAV": "Enable CalDAV integration",
+   "enforceTOTP": "Enforce two-factor authentication for all users",
+   "disabled": "Disabled",
+   "optional": "Enabled (default optional)",
+diff --git a/ui/i18n/translations.en-US.json b/ui/i18n/translations.en-US.json
+index a12e7f74..2d0b83b4 100644
+--- a/ui/i18n/translations.en-US.json
++++ b/ui/i18n/translations.en-US.json
+@@ -169,6 +169,9 @@
+   "errorGroupNameAlreadyExists": "The group name already exists.",
+   "every": "Every",
+   "featureCurrentlyUnavailable": "This feature is currently unavailable.",
++  "featureMailNotifications": "Enable mail notifications",
++  "featureSecurityFeatures": "Enable TOTP and passkeys",
++  "featureCalDAV": "Enable CalDAV integration",
+   "filter": "Filter",
+   "findYourPlace": "Find your space.",
+   "firstname": "Firstname",
+@@ -347,6 +350,9 @@
+   "style": "Style",
+   "allowRecurringBookings": "Allow recurring bookings",
+   "newUserDefaultMailNotification": "Enable mail notification for new users by default",
++  "featureMailNotifications": "Enable mail notifications",
++  "featureSecurityFeatures": "Enable security extras",
++  "featureCalDAV": "Enable CalDAV integration",
+   "enforceTOTP": "Enforce two-factor authentication for all users",
+   "disabled": "Disabled",
+   "optional": "Enabled (default optional)",
+diff --git a/ui/i18n/translations.es.json b/ui/i18n/translations.es.json
+index 2a6e6e15..7a320733 100644
+--- a/ui/i18n/translations.es.json
++++ b/ui/i18n/translations.es.json
+@@ -482,5 +482,8 @@
+   "cloudHintLink": "Learn more about Seatsurfing Professional",
+   "sponsorLink": "Support us by becoming a sponsor",
+   "shapeRect": "Rectangle",
+-  "shapeCircle": "Circle/Oval"
++  "shapeCircle": "Circle/Oval",
++  "featureCalDAV": "Enable CalDAV integration",
++  "featureMailNotifications": "Enable mail notifications",
++  "featureSecurityFeatures": "Enable security extras"
+ }
+diff --git a/ui/i18n/translations.et.json b/ui/i18n/translations.et.json
+index 1d0754d5..23b9752f 100644
+--- a/ui/i18n/translations.et.json
++++ b/ui/i18n/translations.et.json
+@@ -482,5 +482,8 @@
+   "cloudHintLink": "Learn more about Seatsurfing Professional",
+   "sponsorLink": "Support us by becoming a sponsor",
+   "shapeRect": "Rectangle",
+-  "shapeCircle": "Circle/Oval"
++  "shapeCircle": "Circle/Oval",
++  "featureCalDAV": "Enable CalDAV integration",
++  "featureMailNotifications": "Enable mail notifications",
++  "featureSecurityFeatures": "Enable security extras"
+ }
+diff --git a/ui/i18n/translations.fi.json b/ui/i18n/translations.fi.json
+index e7b66e51..5e1e93df 100644
+--- a/ui/i18n/translations.fi.json
++++ b/ui/i18n/translations.fi.json
+@@ -480,5 +480,8 @@
+   "cloudHintLink": "Learn more about Seatsurfing Professional",
+   "sponsorLink": "Support us by becoming a sponsor",
+   "shapeRect": "Rectangle",
+-  "shapeCircle": "Circle/Oval"
++  "shapeCircle": "Circle/Oval",
++  "featureCalDAV": "Enable CalDAV integration",
++  "featureMailNotifications": "Enable mail notifications",
++  "featureSecurityFeatures": "Enable security extras"
+ }
+diff --git a/ui/i18n/translations.fr.json b/ui/i18n/translations.fr.json
+index 27ae2ca3..1e65b41c 100644
+--- a/ui/i18n/translations.fr.json
++++ b/ui/i18n/translations.fr.json
+@@ -482,5 +482,8 @@
+   "cloudHintLink": "Learn more about Seatsurfing Professional",
+   "sponsorLink": "Support us by becoming a sponsor",
+   "shapeRect": "Rectangle",
+-  "shapeCircle": "Circle/Oval"
++  "shapeCircle": "Circle/Oval",
++  "featureCalDAV": "Enable CalDAV integration",
++  "featureMailNotifications": "Enable mail notifications",
++  "featureSecurityFeatures": "Enable security extras"
+ }
+diff --git a/ui/i18n/translations.he.json b/ui/i18n/translations.he.json
+index 09106dc9..28d51e28 100644
+--- a/ui/i18n/translations.he.json
++++ b/ui/i18n/translations.he.json
+@@ -482,5 +482,8 @@
+   "cloudHintLink": "Learn more about Seatsurfing Professional",
+   "sponsorLink": "Support us by becoming a sponsor",
+   "shapeRect": "Rectangle",
+-  "shapeCircle": "Circle/Oval"
++  "shapeCircle": "Circle/Oval",
++  "featureCalDAV": "Enable CalDAV integration",
++  "featureMailNotifications": "Enable mail notifications",
++  "featureSecurityFeatures": "Enable security extras"
+ }
+diff --git a/ui/i18n/translations.hu.json b/ui/i18n/translations.hu.json
+index d95d8d57..1b6d5cf6 100644
+--- a/ui/i18n/translations.hu.json
++++ b/ui/i18n/translations.hu.json
+@@ -482,5 +482,8 @@
+   "cloudHintLink": "Learn more about Seatsurfing Professional",
+   "sponsorLink": "Support us by becoming a sponsor",
+   "shapeRect": "Rectangle",
+-  "shapeCircle": "Circle/Oval"
++  "shapeCircle": "Circle/Oval",
++  "featureCalDAV": "Enable CalDAV integration",
++  "featureMailNotifications": "Enable mail notifications",
++  "featureSecurityFeatures": "Enable security extras"
+ }
+diff --git a/ui/i18n/translations.it.json b/ui/i18n/translations.it.json
+index c601ecc1..4e9e9ca8 100644
+--- a/ui/i18n/translations.it.json
++++ b/ui/i18n/translations.it.json
+@@ -482,5 +482,8 @@
+   "cloudHintLink": "Learn more about Seatsurfing Professional",
+   "sponsorLink": "Support us by becoming a sponsor",
+   "shapeRect": "Rectangle",
+-  "shapeCircle": "Circle/Oval"
++  "shapeCircle": "Circle/Oval",
++  "featureCalDAV": "Enable CalDAV integration",
++  "featureMailNotifications": "Enable mail notifications",
++  "featureSecurityFeatures": "Enable security extras"
+ }
+diff --git a/ui/i18n/translations.nl.json b/ui/i18n/translations.nl.json
+index b8ed547a..79265fc0 100644
+--- a/ui/i18n/translations.nl.json
++++ b/ui/i18n/translations.nl.json
+@@ -482,5 +482,8 @@
+   "cloudHintLink": "Learn more about Seatsurfing Professional",
+   "sponsorLink": "Support us by becoming a sponsor",
+   "shapeRect": "Rectangle",
+-  "shapeCircle": "Circle/Oval"
++  "shapeCircle": "Circle/Oval",
++  "featureCalDAV": "Enable CalDAV integration",
++  "featureMailNotifications": "Enable mail notifications",
++  "featureSecurityFeatures": "Enable security extras"
+ }
+diff --git a/ui/i18n/translations.pl.json b/ui/i18n/translations.pl.json
+index 44b77bbe..d38307af 100644
+--- a/ui/i18n/translations.pl.json
++++ b/ui/i18n/translations.pl.json
+@@ -482,5 +482,8 @@
+   "cloudHintLink": "Learn more about Seatsurfing Professional",
+   "sponsorLink": "Support us by becoming a sponsor",
+   "shapeRect": "Rectangle",
+-  "shapeCircle": "Circle/Oval"
++  "shapeCircle": "Circle/Oval",
++  "featureCalDAV": "Enable CalDAV integration",
++  "featureMailNotifications": "Enable mail notifications",
++  "featureSecurityFeatures": "Enable security extras"
+ }
+diff --git a/ui/i18n/translations.pt.json b/ui/i18n/translations.pt.json
+index 74adfd3e..ab141fb4 100644
+--- a/ui/i18n/translations.pt.json
++++ b/ui/i18n/translations.pt.json
+@@ -482,5 +482,8 @@
+   "cloudHintLink": "Learn more about Seatsurfing Professional",
+   "sponsorLink": "Support us by becoming a sponsor",
+   "shapeRect": "Rectangle",
+-  "shapeCircle": "Circle/Oval"
++  "shapeCircle": "Circle/Oval",
++  "featureCalDAV": "Enable CalDAV integration",
++  "featureMailNotifications": "Enable mail notifications",
++  "featureSecurityFeatures": "Enable security extras"
+ }
+diff --git a/ui/i18n/translations.ro.json b/ui/i18n/translations.ro.json
+index 69b44393..39af7397 100644
+--- a/ui/i18n/translations.ro.json
++++ b/ui/i18n/translations.ro.json
+@@ -482,5 +482,8 @@
+   "cloudHintLink": "Learn more about Seatsurfing Professional",
+   "sponsorLink": "Support us by becoming a sponsor",
+   "shapeRect": "Rectangle",
+-  "shapeCircle": "Circle/Oval"
++  "shapeCircle": "Circle/Oval",
++  "featureCalDAV": "Enable CalDAV integration",
++  "featureMailNotifications": "Enable mail notifications",
++  "featureSecurityFeatures": "Enable security extras"
+ }
+diff --git a/ui/i18n/translations.zh-TW.json b/ui/i18n/translations.zh-TW.json
+index 252d613e..65659316 100644
+--- a/ui/i18n/translations.zh-TW.json
++++ b/ui/i18n/translations.zh-TW.json
+@@ -480,5 +480,8 @@
+   "cloudHintLink": "Learn more about Seatsurfing Professional",
+   "sponsorLink": "Support us by becoming a sponsor",
+   "shapeRect": "Rectangle",
+-  "shapeCircle": "Circle/Oval"
++  "shapeCircle": "Circle/Oval",
++  "featureCalDAV": "Enable CalDAV integration",
++  "featureMailNotifications": "Enable mail notifications",
++  "featureSecurityFeatures": "Enable security extras"
+ }
+-- 
+2.54.0
+
