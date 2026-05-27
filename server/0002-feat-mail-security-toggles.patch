@@ -1,4 +1,4 @@
-From 2e5cc46e3533e47a6b26511f82205b7273a49de4 Mon Sep 17 00:00:00 2001
+From 397636e307d528f129b5ec9a82647b294afb37b7 Mon Sep 17 00:00:00 2001
 From: James Nohilly <184946269+jamesnohilly@users.noreply.github.com>
 Date: Mon, 25 May 2026 15:49:55 +0100
 Subject: [PATCH] feat(server): add configurable mail and security feature
@@ -6,16 +6,17 @@ Subject: [PATCH] feat(server): add configurable mail and security feature
 
 ---
  server/repository/settings-repository.go      |   6 ++
- server/router/auth-router.go                  |  58 +++++-----
+ server/router/auth-router.go                  |  59 ++++++-----
+ server/router/organization-router.go          |   2 +
  server/router/passkey-router.go               |  28 +++++
  server/router/settings-router.go              |  18 ++++
- server/router/test/auth-router_test.go        |  24 +++++
+ server/router/test/auth-router_test.go        |  33 ++++++
  server/router/test/settings-router_test.go    |  18 ++++
  .../test/user-preferences-router_test.go      |  65 ++++++++++++
  server/router/test/user-router_test.go        |  60 +++++++++++
  server/router/user-preferences-router.go      | 100 ++++++++++++++----
  server/router/user-router.go                  |  24 +++++
- 10 files changed, 350 insertions(+), 51 deletions(-)
+ 11 files changed, 362 insertions(+), 51 deletions(-)
 
 diff --git a/server/repository/settings-repository.go b/server/repository/settings-repository.go
 index 96c1a6ae..ace4884e 100644
@@ -42,7 +43,7 @@ index 96c1a6ae..ace4884e 100644
  		"($1, '"+SettingAllowAnyUser.Name+"', '1'), "+
  		"($1, '"+SettingDailyBasisBooking.Name+"', '0'), "+
 diff --git a/server/router/auth-router.go b/server/router/auth-router.go
-index 51393358..2e463029 100644
+index 51393358..712873bd 100644
 --- a/server/router/auth-router.go
 +++ b/server/router/auth-router.go
 @@ -567,39 +567,41 @@ func (router *AuthRouter) loginPassword(w http.ResponseWriter, r *http.Request)
@@ -115,6 +116,33 @@ index 51393358..2e463029 100644
  	}
  
  	router.createAndSendJWT(w, r, user, "password login", "", "")
+@@ -1257,6 +1259,7 @@ func (router *AuthRouter) getPreflightResponseForOrg(org *Organization) *AuthPre
+ 			CreateOrganizationRequest: CreateOrganizationRequest{
+ 				Name: org.Name,
+ 			},
++			FeatureSecurityFeatures: areSecurityFeaturesEnabled(org.ID),
+ 		},
+ 		RequirePassword:      false,
+ 		DisablePasswordLogin: GetConfig().DisablePasswordLogin,
+diff --git a/server/router/organization-router.go b/server/router/organization-router.go
+index 14ad7dd2..573c1b3e 100644
+--- a/server/router/organization-router.go
++++ b/server/router/organization-router.go
+@@ -29,6 +29,7 @@ type CreateOrganizationRequest struct {
+ type GetOrganizationResponse struct {
+ 	ID string `json:"id"`
+ 	CreateOrganizationRequest
++	FeatureSecurityFeatures bool `json:"featureSecurityFeatures"`
+ }
+ 
+ type GetDomainResponse struct {
+@@ -639,5 +640,6 @@ func (router *OrganizationRouter) copyToRestModel(e *Organization) *GetOrganizat
+ 	m.Lastname = e.ContactLastname
+ 	m.Email = e.ContactEmail
+ 	m.Language = e.Language
++	m.FeatureSecurityFeatures = areSecurityFeaturesEnabled(e.ID)
+ 	return m
+ }
 diff --git a/server/router/passkey-router.go b/server/router/passkey-router.go
 index 978a5780..5cc8d83f 100644
 --- a/server/router/passkey-router.go
@@ -247,10 +275,10 @@ index 52b6c7b1..c0b8852b 100644
  		return SettingNewUserDefaultMailNotification.Type
  	}
 diff --git a/server/router/test/auth-router_test.go b/server/router/test/auth-router_test.go
-index 1fff8ece..ff4c5d74 100644
+index 1fff8ece..2592d9bd 100644
 --- a/server/router/test/auth-router_test.go
 +++ b/server/router/test/auth-router_test.go
-@@ -48,6 +48,30 @@ func TestAuthPasswordLogin(t *testing.T) {
+@@ -48,6 +48,37 @@ func TestAuthPasswordLogin(t *testing.T) {
  	CheckTestString(t, user.Email, resBody2.Email)
  }
  
@@ -276,11 +304,34 @@ index 1fff8ece..ff4c5d74 100644
 +	req := NewHTTPRequest("POST", "/auth/login", "", bytes.NewBufferString(payload))
 +	res := ExecuteTestRequest(req)
 +	CheckTestResponseCode(t, http.StatusOK, res.Code)
++
++	req = NewHTTPRequestWithAccessToken("GET", "/auth/org/test.com", "", nil)
++	res = ExecuteTestRequest(req)
++	CheckTestResponseCode(t, http.StatusOK, res.Code)
++	var preflight *AuthPreflightResponse
++	json.Unmarshal(res.Body.Bytes(), &preflight)
++	CheckTestBool(t, false, preflight.Organization.FeatureSecurityFeatures)
 +}
 +
  func TestAuthPasswordLoginBan(t *testing.T) {
  	ClearTestDB()
  
+@@ -224,6 +255,7 @@ func TestAuthOrgDetails(t *testing.T) {
+ 	json.Unmarshal(res.Body.Bytes(), &resBody)
+ 	CheckTestString(t, "Test Org", resBody.Organization.Name)
+ 	CheckTestBool(t, false, resBody.RequirePassword)
++	CheckTestBool(t, true, resBody.Organization.FeatureSecurityFeatures)
+ 
+ 	req = NewHTTPRequestWithAccessToken("GET", "/auth/org/test2.com", "", nil)
+ 	res = ExecuteTestRequest(req)
+@@ -232,6 +264,7 @@ func TestAuthOrgDetails(t *testing.T) {
+ 	json.Unmarshal(res.Body.Bytes(), &resBody2)
+ 	CheckTestString(t, "Test Org", resBody2.Organization.Name)
+ 	CheckTestBool(t, true, resBody2.RequirePassword)
++	CheckTestBool(t, true, resBody2.Organization.FeatureSecurityFeatures)
+ 
+ 	req = NewHTTPRequestWithAccessToken("GET", "/auth/org/test3.com", "", nil)
+ 	res = ExecuteTestRequest(req)
 diff --git a/server/router/test/settings-router_test.go b/server/router/test/settings-router_test.go
 index 9d9fc441..1123ad88 100644
 --- a/server/router/test/settings-router_test.go

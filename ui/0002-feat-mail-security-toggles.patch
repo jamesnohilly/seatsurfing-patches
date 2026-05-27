@@ -1,4 +1,4 @@
-From f7d54b38bd41fa88f0dba68e6594557d8808fdc4 Mon Sep 17 00:00:00 2001
+From f567e2102fad99b6ce9a3a7140f5af37fc3b378e Mon Sep 17 00:00:00 2001
 From: James Nohilly <184946269+jamesnohilly@users.noreply.github.com>
 Date: Mon, 25 May 2026 15:50:23 +0100
 Subject: [PATCH] feat(admin-ui): add configurable mail and security feature
@@ -9,8 +9,10 @@ Subject: [PATCH] feat(admin-ui): add configurable mail and security feature
  ui/src/pages/admin/approvals/index.tsx |  9 +++-
  ui/src/pages/admin/settings/index.tsx  | 70 ++++++++++++++++++++++++++
  ui/src/pages/admin/users/[id].tsx      | 70 +++++++++++++++-----------
+ ui/src/pages/login/index.tsx           | 14 ++++--
  ui/src/pages/preferences.tsx           | 56 ++++++++++++++-------
- 5 files changed, 167 insertions(+), 50 deletions(-)
+ ui/src/types/Organization.ts           |  3 ++
+ 7 files changed, 181 insertions(+), 53 deletions(-)
 
 diff --git a/ui/src/components/RuntimeConfig.ts b/ui/src/components/RuntimeConfig.ts
 index 5ebb2ac1..7dda429c 100644
@@ -310,6 +312,52 @@ index 555f3383..fbd70de1 100644
  
            {/* Password field */}
            <Form.Group
+diff --git a/ui/src/pages/login/index.tsx b/ui/src/pages/login/index.tsx
+index 8f15c694..b4af8fba 100644
+--- a/ui/src/pages/login/index.tsx
++++ b/ui/src/pages/login/index.tsx
+@@ -417,6 +417,9 @@ class Login extends React.Component<Props, State> {
+       );
+     }
+ 
++    const securityFeaturesEnabled =
++      this.org?.featureSecurityFeatures ?? true;
++
+     const copyrightFooter = (
+       <div className="copyright-footer">
+         &copy;&nbsp;
+@@ -515,7 +518,9 @@ class Login extends React.Component<Props, State> {
+           className="form-signin"
+           name="passkey-2fa"
+           hidden={
+-            !this.state.requirePasskey || this.state.requirePasswordUpdate
++            !this.state.requirePasskey ||
++            this.state.requirePasswordUpdate ||
++            !securityFeaturesEnabled
+           }
+         >
+           <img src="/ui/seatsurfing.svg" alt="Seatsurfing" className="logo" />
+@@ -712,7 +717,7 @@ class Login extends React.Component<Props, State> {
+           <Form.Control.Feedback type="invalid">
+             {this.props.t("errorInvalidEmail")}
+           </Form.Control.Feedback>
+-          {this.state.passkeyAvailable && (
++          {securityFeaturesEnabled && this.state.passkeyAvailable && (
+             <p className="margin-top-25">
+               <Button
+                 variant="link"
+@@ -731,7 +736,10 @@ class Login extends React.Component<Props, State> {
+               )}
+             </p>
+           )}
+-          <p className="margin-top-50" hidden={!this.org}>
++          <p
++            className="margin-top-50"
++            hidden={!this.org || !securityFeaturesEnabled}
++          >
+             <Link href="/resetpw">{this.props.t("forgotPassword")}</Link>
+           </p>
+         </Form>
 diff --git a/ui/src/pages/preferences.tsx b/ui/src/pages/preferences.tsx
 index e063e109..701c6a09 100644
 --- a/ui/src/pages/preferences.tsx
@@ -456,6 +504,34 @@ index e063e109..701c6a09 100644
              >
                <h5 className="margin-top-15">
                  {this.props.t("caldavCalendar")}
+diff --git a/ui/src/types/Organization.ts b/ui/src/types/Organization.ts
+index 424838cf..c1a9f829 100644
+--- a/ui/src/types/Organization.ts
++++ b/ui/src/types/Organization.ts
+@@ -7,6 +7,7 @@ export default class Organization extends Entity {
+   contactLastname: string;
+   contactEmail: string;
+   language: string;
++  featureSecurityFeatures: boolean;
+ 
+   constructor() {
+     super();
+@@ -15,6 +16,7 @@ export default class Organization extends Entity {
+     this.contactLastname = "";
+     this.contactEmail = "";
+     this.language = "";
++    this.featureSecurityFeatures = true;
+   }
+ 
+   serialize(): Object {
+@@ -35,6 +37,7 @@ export default class Organization extends Entity {
+     this.contactLastname = input.lastname;
+     this.contactEmail = input.email;
+     this.language = input.language;
++    this.featureSecurityFeatures = input.featureSecurityFeatures ?? true;
+   }
+ 
+   getBackendUrl(): string {
 -- 
 2.54.0
 
