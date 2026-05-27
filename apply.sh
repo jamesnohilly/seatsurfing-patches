@@ -2,7 +2,7 @@
 set -euo pipefail
 
 UPSTREAM="https://github.com/seatsurfing/seatsurfing.git"
-PINNED_TAG="v1.95.0"
+PINNED_TAG="v1.99.2"
 PATCHES_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 usage() {
