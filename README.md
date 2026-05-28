@@ -15,10 +15,13 @@ The repository contains:
 
 ## Added Features
 
-- Sub-group hierarchy
-- Configurable mail, security, and CalDAV feature toggles
-- Customizable branding for website name, logo, and favicon
-- Group-management enhancements
+- Sub-group hierarchy and group-management enhancements.
+- Configurable mail notification, security feature, and CalDAV feature toggles.
+- Simplified branding settings for website name, logo, and favicon surfaces.
+- Plain username support for environments that do not use email-style usernames.
+- Admin CSV user import.
+- Weekly booking window policy for staged booking access and approval windows.
+- Admin-controlled booking creation lock with booking UI and admin UI feedback.
 
 ## Documentation
 
