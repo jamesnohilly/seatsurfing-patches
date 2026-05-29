@@ -1,0 +1,24 @@
+name: Patch apply check - development
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  apply:
+    name: Apply development patch series
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Check development patches apply cleanly
+        run: ./apply.sh -c -m tags.txt -e development
