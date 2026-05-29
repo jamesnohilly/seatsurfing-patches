@@ -1,0 +1,223 @@
+From 53e3513b6a9f880b5a2bf783f04f20abf609e137 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Piotr=20P=C5=82aczek?= <piotrpdev@gmail.com>
+Date: Thu, 28 May 2026 18:59:17 +0100
+Subject: [PATCH] feat(i18n): add random seat selection button
+
+Suggested-by: dsanchezseco <d.seco@protonmail.com>
+Reference: https://github.com/jamesnohilly/seatsurfing-patches/issues/1
+---
+ ui/i18n/translations.de.json    | 4 +++-
+ ui/i18n/translations.en-GB.json | 4 +++-
+ ui/i18n/translations.en-US.json | 4 +++-
+ ui/i18n/translations.es.json    | 4 +++-
+ ui/i18n/translations.et.json    | 4 +++-
+ ui/i18n/translations.fi.json    | 4 +++-
+ ui/i18n/translations.fr.json    | 4 +++-
+ ui/i18n/translations.he.json    | 4 +++-
+ ui/i18n/translations.hu.json    | 4 +++-
+ ui/i18n/translations.it.json    | 4 +++-
+ ui/i18n/translations.nl.json    | 4 +++-
+ ui/i18n/translations.pl.json    | 4 +++-
+ ui/i18n/translations.pt.json    | 4 +++-
+ ui/i18n/translations.ro.json    | 4 +++-
+ ui/i18n/translations.zh-TW.json | 4 +++-
+ 15 files changed, 45 insertions(+), 15 deletions(-)
+
+diff --git a/ui/i18n/translations.de.json b/ui/i18n/translations.de.json
+index bb8427df..cdef0dbf 100644
+--- a/ui/i18n/translations.de.json
++++ b/ui/i18n/translations.de.json
+@@ -512,5 +512,7 @@
+   "bookingCreationDisabled": "Booking creation is currently disabled.",
+   "disableBookingCreation": "Disable booking creation",
+   "errorBookingCreationDisabled": "Booking creation is currently disabled.",
+-  "weeklyBookingWindowPolicy": "Enable weekly booking window policy"
++  "weeklyBookingWindowPolicy": "Enable weekly booking window policy",
++  "bookRandomSeat": "Book random seat",
++  "errorNoAvailableSpaces": "No available spaces found."
+ }
+diff --git a/ui/i18n/translations.en-GB.json b/ui/i18n/translations.en-GB.json
+index 3d2a9f69..b8633ede 100644
+--- a/ui/i18n/translations.en-GB.json
++++ b/ui/i18n/translations.en-GB.json
+@@ -509,5 +509,7 @@
+   "bookingCreationDisabled": "Booking creation is currently disabled.",
+   "disableBookingCreation": "Disable booking creation",
+   "errorBookingCreationDisabled": "Booking creation is currently disabled.",
+-  "weeklyBookingWindowPolicy": "Enable weekly booking window policy"
++  "weeklyBookingWindowPolicy": "Enable weekly booking window policy",
++  "bookRandomSeat": "Book random seat",
++  "errorNoAvailableSpaces": "No available spaces found."
+ }
+diff --git a/ui/i18n/translations.en-US.json b/ui/i18n/translations.en-US.json
+index 3eb3d41f..070aa77a 100644
+--- a/ui/i18n/translations.en-US.json
++++ b/ui/i18n/translations.en-US.json
+@@ -511,5 +511,7 @@
+   "bookingCreationDisabled": "Booking creation is currently disabled.",
+   "disableBookingCreation": "Disable booking creation",
+   "errorBookingCreationDisabled": "Booking creation is currently disabled.",
+-  "weeklyBookingWindowPolicy": "Enable weekly booking window policy"
++  "weeklyBookingWindowPolicy": "Enable weekly booking window policy",
++  "bookRandomSeat": "Book random seat",
++  "errorNoAvailableSpaces": "No available spaces found."
+ }
+diff --git a/ui/i18n/translations.es.json b/ui/i18n/translations.es.json
+index 3c04b8ad..27f0b13c 100644
+--- a/ui/i18n/translations.es.json
++++ b/ui/i18n/translations.es.json
+@@ -511,5 +511,7 @@
+   "bookingCreationDisabled": "Booking creation is currently disabled.",
+   "disableBookingCreation": "Disable booking creation",
+   "errorBookingCreationDisabled": "Booking creation is currently disabled.",
+-  "weeklyBookingWindowPolicy": "Enable weekly booking window policy"
++  "weeklyBookingWindowPolicy": "Enable weekly booking window policy",
++  "bookRandomSeat": "Book random seat",
++  "errorNoAvailableSpaces": "No available spaces found."
+ }
+diff --git a/ui/i18n/translations.et.json b/ui/i18n/translations.et.json
+index acd810bd..b8cb0716 100644
+--- a/ui/i18n/translations.et.json
++++ b/ui/i18n/translations.et.json
+@@ -511,5 +511,7 @@
+   "bookingCreationDisabled": "Booking creation is currently disabled.",
+   "disableBookingCreation": "Disable booking creation",
+   "errorBookingCreationDisabled": "Booking creation is currently disabled.",
+-  "weeklyBookingWindowPolicy": "Enable weekly booking window policy"
++  "weeklyBookingWindowPolicy": "Enable weekly booking window policy",
++  "bookRandomSeat": "Book random seat",
++  "errorNoAvailableSpaces": "No available spaces found."
+ }
+diff --git a/ui/i18n/translations.fi.json b/ui/i18n/translations.fi.json
+index 688c362c..495fffc4 100644
+--- a/ui/i18n/translations.fi.json
++++ b/ui/i18n/translations.fi.json
+@@ -509,5 +509,7 @@
+   "bookingCreationDisabled": "Booking creation is currently disabled.",
+   "disableBookingCreation": "Disable booking creation",
+   "errorBookingCreationDisabled": "Booking creation is currently disabled.",
+-  "weeklyBookingWindowPolicy": "Enable weekly booking window policy"
++  "weeklyBookingWindowPolicy": "Enable weekly booking window policy",
++  "bookRandomSeat": "Book random seat",
++  "errorNoAvailableSpaces": "No available spaces found."
+ }
+diff --git a/ui/i18n/translations.fr.json b/ui/i18n/translations.fr.json
+index 2827c4f1..cff7a32c 100644
+--- a/ui/i18n/translations.fr.json
++++ b/ui/i18n/translations.fr.json
+@@ -511,5 +511,7 @@
+   "bookingCreationDisabled": "Booking creation is currently disabled.",
+   "disableBookingCreation": "Disable booking creation",
+   "errorBookingCreationDisabled": "Booking creation is currently disabled.",
+-  "weeklyBookingWindowPolicy": "Enable weekly booking window policy"
++  "weeklyBookingWindowPolicy": "Enable weekly booking window policy",
++  "bookRandomSeat": "Book random seat",
++  "errorNoAvailableSpaces": "No available spaces found."
+ }
+diff --git a/ui/i18n/translations.he.json b/ui/i18n/translations.he.json
+index 3423d87c..d15dccda 100644
+--- a/ui/i18n/translations.he.json
++++ b/ui/i18n/translations.he.json
+@@ -511,5 +511,7 @@
+   "bookingCreationDisabled": "Booking creation is currently disabled.",
+   "disableBookingCreation": "Disable booking creation",
+   "errorBookingCreationDisabled": "Booking creation is currently disabled.",
+-  "weeklyBookingWindowPolicy": "Enable weekly booking window policy"
++  "weeklyBookingWindowPolicy": "Enable weekly booking window policy",
++  "bookRandomSeat": "Book random seat",
++  "errorNoAvailableSpaces": "No available spaces found."
+ }
+diff --git a/ui/i18n/translations.hu.json b/ui/i18n/translations.hu.json
+index a207d951..d93c44b9 100644
+--- a/ui/i18n/translations.hu.json
++++ b/ui/i18n/translations.hu.json
+@@ -511,5 +511,7 @@
+   "bookingCreationDisabled": "Booking creation is currently disabled.",
+   "disableBookingCreation": "Disable booking creation",
+   "errorBookingCreationDisabled": "Booking creation is currently disabled.",
+-  "weeklyBookingWindowPolicy": "Enable weekly booking window policy"
++  "weeklyBookingWindowPolicy": "Enable weekly booking window policy",
++  "bookRandomSeat": "Book random seat",
++  "errorNoAvailableSpaces": "No available spaces found."
+ }
+diff --git a/ui/i18n/translations.it.json b/ui/i18n/translations.it.json
+index 71049d19..fd46de64 100644
+--- a/ui/i18n/translations.it.json
++++ b/ui/i18n/translations.it.json
+@@ -511,5 +511,7 @@
+   "bookingCreationDisabled": "Booking creation is currently disabled.",
+   "disableBookingCreation": "Disable booking creation",
+   "errorBookingCreationDisabled": "Booking creation is currently disabled.",
+-  "weeklyBookingWindowPolicy": "Enable weekly booking window policy"
++  "weeklyBookingWindowPolicy": "Enable weekly booking window policy",
++  "bookRandomSeat": "Book random seat",
++  "errorNoAvailableSpaces": "No available spaces found."
+ }
+diff --git a/ui/i18n/translations.nl.json b/ui/i18n/translations.nl.json
+index fa20a4b7..0d39b6b5 100644
+--- a/ui/i18n/translations.nl.json
++++ b/ui/i18n/translations.nl.json
+@@ -511,5 +511,7 @@
+   "bookingCreationDisabled": "Booking creation is currently disabled.",
+   "disableBookingCreation": "Disable booking creation",
+   "errorBookingCreationDisabled": "Booking creation is currently disabled.",
+-  "weeklyBookingWindowPolicy": "Enable weekly booking window policy"
++  "weeklyBookingWindowPolicy": "Enable weekly booking window policy",
++  "bookRandomSeat": "Book random seat",
++  "errorNoAvailableSpaces": "No available spaces found."
+ }
+diff --git a/ui/i18n/translations.pl.json b/ui/i18n/translations.pl.json
+index 76fcb469..d97d03a3 100644
+--- a/ui/i18n/translations.pl.json
++++ b/ui/i18n/translations.pl.json
+@@ -511,5 +511,7 @@
+   "bookingCreationDisabled": "Booking creation is currently disabled.",
+   "disableBookingCreation": "Disable booking creation",
+   "errorBookingCreationDisabled": "Booking creation is currently disabled.",
+-  "weeklyBookingWindowPolicy": "Enable weekly booking window policy"
++  "weeklyBookingWindowPolicy": "Enable weekly booking window policy",
++  "bookRandomSeat": "Book random seat",
++  "errorNoAvailableSpaces": "No available spaces found."
+ }
+diff --git a/ui/i18n/translations.pt.json b/ui/i18n/translations.pt.json
+index 55251b96..8ed2986b 100644
+--- a/ui/i18n/translations.pt.json
++++ b/ui/i18n/translations.pt.json
+@@ -511,5 +511,7 @@
+   "bookingCreationDisabled": "Booking creation is currently disabled.",
+   "disableBookingCreation": "Disable booking creation",
+   "errorBookingCreationDisabled": "Booking creation is currently disabled.",
+-  "weeklyBookingWindowPolicy": "Enable weekly booking window policy"
++  "weeklyBookingWindowPolicy": "Enable weekly booking window policy",
++  "bookRandomSeat": "Book random seat",
++  "errorNoAvailableSpaces": "No available spaces found."
+ }
+diff --git a/ui/i18n/translations.ro.json b/ui/i18n/translations.ro.json
+index 8fc7683f..e8b2fab5 100644
+--- a/ui/i18n/translations.ro.json
++++ b/ui/i18n/translations.ro.json
+@@ -511,5 +511,7 @@
+   "bookingCreationDisabled": "Booking creation is currently disabled.",
+   "disableBookingCreation": "Disable booking creation",
+   "errorBookingCreationDisabled": "Booking creation is currently disabled.",
+-  "weeklyBookingWindowPolicy": "Enable weekly booking window policy"
++  "weeklyBookingWindowPolicy": "Enable weekly booking window policy",
++  "bookRandomSeat": "Book random seat",
++  "errorNoAvailableSpaces": "No available spaces found."
+ }
+diff --git a/ui/i18n/translations.zh-TW.json b/ui/i18n/translations.zh-TW.json
+index cbbf52b9..a7f1818c 100644
+--- a/ui/i18n/translations.zh-TW.json
++++ b/ui/i18n/translations.zh-TW.json
+@@ -509,5 +509,7 @@
+   "bookingCreationDisabled": "Booking creation is currently disabled.",
+   "disableBookingCreation": "Disable booking creation",
+   "errorBookingCreationDisabled": "Booking creation is currently disabled.",
+-  "weeklyBookingWindowPolicy": "Enable weekly booking window policy"
++  "weeklyBookingWindowPolicy": "Enable weekly booking window policy",
++  "bookRandomSeat": "Book random seat",
++  "errorNoAvailableSpaces": "No available spaces found."
+ }
+-- 
+2.54.0
+

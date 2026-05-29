@@ -1,0 +1,84 @@
+From 009cb8e58e28ad12f61c9f445225cd95c7ee82ce Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Piotr=20P=C5=82aczek?= <piotrpdev@gmail.com>
+Date: Thu, 28 May 2026 18:57:17 +0100
+Subject: [PATCH] feat(ui): add random seat selection button
+
+Suggested-by: dsanchezseco <d.seco@protonmail.com>
+Reference: https://github.com/jamesnohilly/seatsurfing-patches/issues/1
+---
+ ui/src/pages/search.tsx | 38 ++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 38 insertions(+)
+
+diff --git a/ui/src/pages/search.tsx b/ui/src/pages/search.tsx
+index d416ef80..5045b9be 100644
+--- a/ui/src/pages/search.tsx
++++ b/ui/src/pages/search.tsx
+@@ -29,6 +29,7 @@ import {
+   IoTime as TimeIcon,
+   IoTimerOutline as TimerIcon,
+   IoCalendarOutline as CalendarIcon,
++  IoDice as DiceIcon,
+ } from "react-icons/io5";
+ import ErrorText from "../types/ErrorText";
+ import { NextRouter } from "next/router";
+@@ -750,6 +751,21 @@ class Search extends React.Component<Props, State> {
+     }
+   };
+ 
++  onBookRandomSeat = () => {
++    const available = this.data.filter(
++      (s) => s.available && s.allowed && s.enabled,
++    );
++    if (available.length === 0) {
++      this.setState({
++        showError: true,
++        errorText: this.props.t("errorNoAvailableSpaces"),
++      });
++      return;
++    }
++    const randomSpace = available[Math.floor(Math.random() * available.length)];
++    this.onSpaceSelect(randomSpace);
++  };
++
+   getAvailabilityStyle = (item: Space, bookings: Booking[]) => {
+     const myDesk = bookings.find(
+       (b) => b.user.email === RuntimeConfig.INFOS.username,
+@@ -2831,6 +2847,27 @@ class Search extends React.Component<Props, State> {
+       </Modal>
+     );
+ 
++    const randomSeatButton = (
++      <Button
++        variant="primary"
++        title={this.props.t("bookRandomSeat")}
++        aria-label={this.props.t("bookRandomSeat")}
++        disabled={
++          !this.state.locationId ||
++          this.state.loading ||
++          RuntimeConfig.INFOS.disableBookingCreation
++        }
++        onClick={() => this.onBookRandomSeat()}
++        className="d-flex align-items-center justify-content-center shadow position-fixed bottom-0 end-0 mb-4 me-4 rounded-circle"
++        style={{
++          width: "52px",
++          height: "52px"
++        }}
++      >
++        <DiceIcon size={26} />
++      </Button>
++    );
++
+     return (
+       <>
+         <NavBar />
+@@ -2844,6 +2881,7 @@ class Search extends React.Component<Props, State> {
+         {listOrMap}
+         <Loading visible={this.state.loading} />
+         {configContainer}
++        {randomSeatButton}
+       </>
+     );
+   }
+-- 
+2.54.0
+
