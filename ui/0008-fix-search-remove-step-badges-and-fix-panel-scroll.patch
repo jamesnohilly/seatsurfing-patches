@@ -1,0 +1,87 @@
+From bbde8f9d44fc14a16751f4c6794ad2afff83ce44 Mon Sep 17 00:00:00 2001
+From: Vikram-Kumar <Vikram-Kumar@ibm.com>
+Date: Fri, 29 May 2026 11:27:48 +0100
+Subject: [PATCH] fix(search): remove step badges and allow config panel
+ scrolling
+
+---
+ ui/src/pages/search.tsx  |  3 ---
+ ui/src/styles/Search.css | 20 +++++++-------------
+ 2 files changed, 7 insertions(+), 16 deletions(-)
+
+diff --git a/ui/src/pages/search.tsx b/ui/src/pages/search.tsx
+index 7291cec0..8061b580 100644
+--- a/ui/src/pages/search.tsx
++++ b/ui/src/pages/search.tsx
+@@ -2026,7 +2026,6 @@ class Search extends React.Component<Props, State> {
+           <Form className="search-flow-form">
+             <div className="search-step-card">
+               <div className="search-step-title">
+-                <span className="search-step-index">1</span>
+                 <LocationIcon
+                   title={this.props.t("area")}
+                   color={"#555"}
+@@ -2081,7 +2080,6 @@ class Search extends React.Component<Props, State> {
+ 
+             <div className="search-step-card margin-top-10">
+               <div className="search-step-title">
+-                <span className="search-step-index">2</span>
+                 <WeekIcon
+                   title={this.props.t("date")}
+                   color={"#555"}
+@@ -2247,7 +2245,6 @@ class Search extends React.Component<Props, State> {
+ 
+             <div className="search-step-card margin-top-10">
+               <div className="search-step-title">
+-                <span className="search-step-index">3</span>
+                 <MapIcon
+                   title={this.props.t("map")}
+                   color={"#555"}
+diff --git a/ui/src/styles/Search.css b/ui/src/styles/Search.css
+index 8353f951..9be8bc7e 100644
+--- a/ui/src/styles/Search.css
++++ b/ui/src/styles/Search.css
+@@ -69,6 +69,8 @@
+   top: auto;
+   bottom: 0px;
+   left: 0px;
++  display: flex;
++  flex-direction: column;
+   width: 100%;
+   max-height: 350px;
+   padding: 20px;
+@@ -87,6 +89,11 @@
+   display: none;
+ }
+ 
++.container-search-config .content {
++  min-height: 0;
++  overflow-y: auto;
++}
++
+ .search-flow-form {
+   display: flex;
+   flex-direction: column;
+@@ -110,19 +117,6 @@
+   letter-spacing: 0.01em;
+ }
+ 
+-.search-step-index {
+-  display: inline-flex;
+-  align-items: center;
+-  justify-content: center;
+-  width: 20px;
+-  height: 20px;
+-  border-radius: 999px;
+-  background: #1d4ed8;
+-  color: #fff;
+-  font-size: 0.75rem;
+-  font-weight: 700;
+-}
+-
+ .search-step-divider {
+   color: #98a2b3;
+ }
+-- 
+2.53.0
+

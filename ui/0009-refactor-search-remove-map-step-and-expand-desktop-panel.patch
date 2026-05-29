@@ -1,0 +1,92 @@
+From 2ae113a406882deff1608dfbb8559f72f842f2a1 Mon Sep 17 00:00:00 2001
+From: Vikram-Kumar <Vikram-Kumar@ibm.com>
+Date: Fri, 29 May 2026 16:08:50 +0100
+Subject: [PATCH] refactor(search): remove map step and expand panel on desktop
+
+---
+ ui/src/pages/search.tsx  | 31 +++++++------------------------
+ ui/src/styles/Search.css | 10 +++++-----
+ 2 files changed, 12 insertions(+), 29 deletions(-)
+
+diff --git a/ui/src/pages/search.tsx b/ui/src/pages/search.tsx
+index 8061b580..b8150608 100644
+--- a/ui/src/pages/search.tsx
++++ b/ui/src/pages/search.tsx
+@@ -259,6 +259,13 @@ class Search extends React.Component<Props, State> {
+       });
+       return;
+     }
++    if (this.state.listView) {
++      this.setState({ listView: false });
++      BrowserUtil.tryLocalStorageSetItem(
++        BrowserUtil.LOCAL_STORAGE_KEY_SEARCH_VIEW,
++        "0",
++      );
++    }
+     this.loadItems();
+   };
+ 
+@@ -2243,30 +2250,6 @@ class Search extends React.Component<Props, State> {
+               {this.props.t("bookingCreationDisabled")}
+             </Alert>
+ 
+-            <div className="search-step-card margin-top-10">
+-              <div className="search-step-title">
+-                <MapIcon
+-                  title={this.props.t("map")}
+-                  color={"#555"}
+-                  height="18px"
+-                  width="18px"
+-                />
+-                <span>{this.props.t("map")}</span>
+-              </div>
+-              <Form.Group className="d-flex">
+-                <div className="w-100">
+-                  <Form.Check
+-                    disabled={!this.state.locationId}
+-                    type="switch"
+-                    checked={!this.state.listView}
+-                    onChange={() => this.toggleListView()}
+-                    label={this.props.t("map")}
+-                    aria-label={this.props.t("map")}
+-                    id="switch-control"
+-                  />
+-                </div>
+-              </Form.Group>
+-            </div>
+           </Form>
+         </div>
+       </div>
+diff --git a/ui/src/styles/Search.css b/ui/src/styles/Search.css
+index 9be8bc7e..1d8230f1 100644
+--- a/ui/src/styles/Search.css
++++ b/ui/src/styles/Search.css
+@@ -89,11 +89,6 @@
+   display: none;
+ }
+ 
+-.container-search-config .content {
+-  min-height: 0;
+-  overflow-y: auto;
+-}
+-
+ .search-flow-form {
+   display: flex;
+   flex-direction: column;
+@@ -255,8 +250,13 @@ form#filter-locations-form .row {
+   .container-search-config {
+     width: calc(100% - 20px);
+     max-width: 420px;
++    max-height: none;
+     left: 10px;
+   }
++
++  .container-search-config .content {
++    overflow-y: visible;
++  }
+ }
+ 
+ /* Override react-zoom-pan-pinch v4 CSS module fit-content sizing
+-- 
+2.53.0
+
