@@ -93,6 +93,10 @@ echo "Cloning seatsurfing ${TAG}..."
 git clone --branch "${TAG}" "${UPSTREAM}" "${DEST}"
 
 cd "${DEST}"
+if [[ "$CHECK_MODE" == true ]]; then
+  git config user.name "Seatsurfing Patch CI"
+  git config user.email "seatsurfing-patch-ci@users.noreply.github.com"
+fi
 
 apply_dir() {
   local section="$1"
