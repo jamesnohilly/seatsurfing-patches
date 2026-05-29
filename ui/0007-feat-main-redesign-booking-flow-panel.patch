@@ -1,0 +1,497 @@
+From f2ae0264d212f182749636164cfec671149f2ade Mon Sep 17 00:00:00 2001
+From: Vikram-Kumar <Vikram-Kumar@ibm.com>
+Date: Fri, 29 May 2026 09:04:50 +0100
+Subject: [PATCH] feat(search): redesign booking flow panel with step-based
+ flow
+
+- restructure search panel into 3 steps: area, date/time, and result mode
+
+- add quick presets: today, tomorrow, +2h, and all day
+
+- extract all-day toggle handling into reusable methods
+
+- update Search.css with step card hierarchy and quick action styling
+---
+ ui/src/pages/search.tsx  | 342 +++++++++++++++++++++++++--------------
+ ui/src/styles/Search.css |  46 ++++++
+ 2 files changed, 268 insertions(+), 120 deletions(-)
+
+diff --git a/ui/src/pages/search.tsx b/ui/src/pages/search.tsx
+index d416ef80..7291cec0 100644
+--- a/ui/src/pages/search.tsx
++++ b/ui/src/pages/search.tsx
+@@ -1124,6 +1124,77 @@ class Search extends React.Component<Props, State> {
+     });
+   };
+ 
++  setAllDaySelection = (enabled: boolean, onDone?: () => void) => {
++    if (enabled === this.state.selectionAllDay) {
++      onDone?.();
++      return;
++    }
++
++    if (enabled) {
++      this.resetEnterTime = new Date(this.state.enter);
++      this.resetLeaveTime = new Date(this.state.leave);
++      this.updateEnterAndLeaveDate(
++        DateUtil.setHoursToMin(this.state.enter),
++        DateUtil.setHoursToMax(this.state.leave),
++      );
++    } else {
++      this.updateEnterAndLeaveDate(
++        this.resetEnterTime ?? null,
++        this.resetLeaveTime ?? null,
++      );
++    }
++
++    this.setState(
++      {
++        selectionAllDay: enabled,
++      },
++      () => onDone?.(),
++    );
++  };
++
++  toggleAllDaySelection = () => {
++    this.setAllDaySelection(!this.state.selectionAllDay);
++  };
++
++  applyQuickDatePreset = (
++    preset: "today" | "tomorrow" | "next2h" | "fullday",
++  ) => {
++    if (!this.state.locationId) {
++      return;
++    }
++
++    if (preset === "fullday") {
++      this.setAllDaySelection(true);
++      return;
++    }
++
++    if (preset === "next2h") {
++      const start = new Date();
++      start.setMinutes(0, 0, 0);
++      start.setHours(start.getHours() + 1);
++      const end = new Date(start);
++      end.setHours(start.getHours() + 2);
++
++      this.setState({ selectionMultiDay: false }, () => {
++        this.setAllDaySelection(false, () => {
++          this.updateEnterAndLeaveDate(start, end);
++        });
++      });
++      return;
++    }
++
++    const targetDay =
++      preset === "today" ? DateUtil.getTodayStart() : DateUtil.nextDay(new Date());
++    const nextEnter = DateUtil.copyDate(targetDay, new Date(this.state.enter));
++    const nextLeave = DateUtil.copyDate(targetDay, new Date(this.state.leave));
++
++    if (!this.state.selectionMultiDay && nextLeave.getTime() <= nextEnter.getTime()) {
++      nextLeave.setTime(nextEnter.getTime() + 60 * 60 * 1000);
++    }
++
++    this.updateEnterAndLeaveDate(nextEnter, nextLeave);
++  };
++
+   getLocationAttributeRows = () => {
+     const location = this.getLocation();
+     if (!location) {
+@@ -1952,18 +2023,19 @@ class Search extends React.Component<Props, State> {
+           </div>
+         </div>
+         <div className="content">
+-          <Form>
+-            {/* Location selection */}
+-            <Form.Group className="d-flex">
+-              <div className="pt-1 me-2">
++          <Form className="search-flow-form">
++            <div className="search-step-card">
++              <div className="search-step-title">
++                <span className="search-step-index">1</span>
+                 <LocationIcon
+                   title={this.props.t("area")}
+                   color={"#555"}
+-                  height="20px"
+-                  width="20px"
++                  height="18px"
++                  width="18px"
+                 />
++                <span>{this.props.t("area")}</span>
+               </div>
+-              <div className="ms-2 w-100">
++              <Form.Group>
+                 <InputGroup>
+                   <Form.Select
+                     required={true}
+@@ -2004,138 +2076,164 @@ class Search extends React.Component<Props, State> {
+                     />
+                   </Button>
+                 </InputGroup>
+-              </div>
+-            </Form.Group>
++              </Form.Group>
++            </div>
+ 
+-            {/* Date selection */}
+-            <Form.Group className="d-flex margin-top-10">
+-              <div className="me-2">
++            <div className="search-step-card margin-top-10">
++              <div className="search-step-title">
++                <span className="search-step-index">2</span>
+                 <WeekIcon
+                   title={this.props.t("date")}
+                   color={"#555"}
+-                  height="20px"
+-                  width="20px"
++                  height="18px"
++                  width="18px"
+                 />
+-              </div>
+-
+-              <IconTextButton
+-                text="❮"
+-                title={this.props.t("previousDay")}
+-                disabled={DateUtil.isSameDay(
+-                  this.state.enter,
+-                  earliestEnterDate,
++                <span>{this.props.t("date")}</span>
++                {!RuntimeConfig.INFOS.dailyBasisBooking && (
++                  <>
++                    <span className="search-step-divider">•</span>
++                    <TimeIcon
++                      title={this.props.t("time")}
++                      color={"#555"}
++                      height="18px"
++                      width="18px"
++                    />
++                    <span>{this.props.t("time")}</span>
++                  </>
+                 )}
+-                onClick={() => {
+-                  this.updateEnterAndLeaveDate(
+-                    DateUtil.prevDay(this.state.enter),
+-                    DateUtil.prevDay(this.state.leave),
+-                  );
+-                }}
+-              />
+-
+-              <div
+-                className={`ms-2 ${this.state.selectionMultiDay ? "w-50" : "w-100"}`}
+-              >
+-                {dateEnterPicker}
+               </div>
+ 
+-              {this.state.selectionMultiDay && (
+-                <div className="ms-2 w-50">{dateLeavePicker}</div>
+-              )}
++              <Form.Group className="d-flex align-items-center">
++                <IconTextButton
++                  text="❮"
++                  title={this.props.t("previousDay")}
++                  disabled={DateUtil.isSameDay(
++                    this.state.enter,
++                    earliestEnterDate,
++                  )}
++                  onClick={() => {
++                    this.updateEnterAndLeaveDate(
++                      DateUtil.prevDay(this.state.enter),
++                      DateUtil.prevDay(this.state.leave),
++                    );
++                  }}
++                />
+ 
+-              <IconTextButton
+-                text="❯"
+-                title={this.props.t("nextDay")}
+-                onClick={() => {
+-                  this.updateEnterAndLeaveDate(
+-                    DateUtil.nextDay(this.state.enter),
+-                    DateUtil.nextDay(this.state.leave),
+-                  );
+-                }}
+-              />
++                <div
++                  className={`ms-2 ${this.state.selectionMultiDay ? "w-50" : "w-100"}`}
++                >
++                  {dateEnterPicker}
++                </div>
+ 
+-              <button
+-                type="button"
+-                className={`ms-2 btn d-flex align-items-center ${
+-                  this.state.selectionMultiDay ? "btn-primary" : "btn-light"
+-                }`}
+-                style={{
+-                  padding: "4px 8px",
+-                  borderColor: "#CED4DA",
+-                }}
+-                onClick={() => {
+-                  if (this.state.selectionMultiDay) {
++                {this.state.selectionMultiDay && (
++                  <div className="ms-2 w-50">{dateLeavePicker}</div>
++                )}
++
++                <IconTextButton
++                  text="❯"
++                  title={this.props.t("nextDay")}
++                  onClick={() => {
+                     this.updateEnterAndLeaveDate(
+-                      null,
+-                      DateUtil.copyDate(this.state.enter, this.state.leave),
++                      DateUtil.nextDay(this.state.enter),
++                      DateUtil.nextDay(this.state.leave),
+                     );
+-                  }
+-                  this.setState({
+-                    selectionMultiDay: !this.state.selectionMultiDay,
+-                  });
+-                }}
+-                title={this.props.t("multiDay")}
+-              >
+-                <CalendarIcon
+-                  title={this.props.t("multiDay")}
+-                  color={this.state.selectionMultiDay ? "#fff" : "#555"}
+-                  height="20px"
+-                  width="20px"
++                  }}
+                 />
+-              </button>
+-            </Form.Group>
+ 
+-            {/* Time selection */}
+-            {!RuntimeConfig.INFOS.dailyBasisBooking && (
+-              <Form.Group className="d-flex margin-top-10">
+-                <div className="me-2">
+-                  <TimeIcon
+-                    title={this.props.t("time")}
+-                    color={"#555"}
+-                    height="20px"
+-                    width="20px"
+-                  />
+-                </div>
+-                <div className="ms-2 w-50">{timeEnterPicker}</div>
+-                <div className="ms-2 w-50">{timeLeavePicker}</div>
+                 <button
+                   type="button"
+                   className={`ms-2 btn d-flex align-items-center ${
+-                    this.state.selectionAllDay ? "btn-primary" : "btn-light"
++                    this.state.selectionMultiDay ? "btn-primary" : "btn-light"
+                   }`}
+                   style={{
+                     padding: "4px 8px",
+                     borderColor: "#CED4DA",
+                   }}
+                   onClick={() => {
+-                    if (!this.state.selectionAllDay) {
+-                      this.resetEnterTime = new Date(this.state.enter);
+-                      this.resetLeaveTime = new Date(this.state.leave);
++                    if (this.state.selectionMultiDay) {
+                       this.updateEnterAndLeaveDate(
+-                        DateUtil.setHoursToMin(this.state.enter),
+-                        DateUtil.setHoursToMax(this.state.leave),
+-                      );
+-                    } else {
+-                      this.updateEnterAndLeaveDate(
+-                        this.resetEnterTime ?? null,
+-                        this.resetLeaveTime ?? null,
++                        null,
++                        DateUtil.copyDate(this.state.enter, this.state.leave),
+                       );
+                     }
+                     this.setState({
+-                      selectionAllDay: !this.state.selectionAllDay,
++                      selectionMultiDay: !this.state.selectionMultiDay,
+                     });
+                   }}
+-                  title={this.props.t("allDay")}
++                  title={this.props.t("multiDay")}
+                 >
+-                  <TimerIcon
+-                    title={this.props.t("allDay")}
+-                    color={this.state.selectionAllDay ? "#fff" : "#555"}
++                  <CalendarIcon
++                    title={this.props.t("multiDay")}
++                    color={this.state.selectionMultiDay ? "#fff" : "#555"}
+                     height="20px"
+                     width="20px"
+                   />
+                 </button>
+               </Form.Group>
+-            )}
++
++              {!RuntimeConfig.INFOS.dailyBasisBooking && (
++                <Form.Group className="d-flex margin-top-10">
++                  <div className="w-50 pe-1">{timeEnterPicker}</div>
++                  <div className="w-50 ps-1">{timeLeavePicker}</div>
++                  <button
++                    type="button"
++                    className={`ms-2 btn d-flex align-items-center ${
++                      this.state.selectionAllDay ? "btn-primary" : "btn-light"
++                    }`}
++                    style={{
++                      padding: "4px 8px",
++                      borderColor: "#CED4DA",
++                    }}
++                    onClick={() => this.toggleAllDaySelection()}
++                    title={this.props.t("allDay")}
++                  >
++                    <TimerIcon
++                      title={this.props.t("allDay")}
++                      color={this.state.selectionAllDay ? "#fff" : "#555"}
++                      height="20px"
++                      width="20px"
++                    />
++                  </button>
++                </Form.Group>
++              )}
++
++              <div className="search-quick-actions margin-top-10">
++                <Button
++                  variant="outline-secondary"
++                  size="sm"
++                  disabled={!this.state.locationId}
++                  onClick={() => this.applyQuickDatePreset("today")}
++                >
++                  {this.props.t("today")}
++                </Button>
++                <Button
++                  variant="outline-secondary"
++                  size="sm"
++                  disabled={!this.state.locationId}
++                  onClick={() => this.applyQuickDatePreset("tomorrow")}
++                >
++                  {this.props.t("tomorrow")}
++                </Button>
++                {!RuntimeConfig.INFOS.dailyBasisBooking && (
++                  <Button
++                    variant="outline-secondary"
++                    size="sm"
++                    disabled={!this.state.locationId}
++                    onClick={() => this.applyQuickDatePreset("next2h")}
++                  >
++                    +2h
++                  </Button>
++                )}
++                <Button
++                  variant={this.state.selectionAllDay ? "primary" : "outline-secondary"}
++                  size="sm"
++                  disabled={!this.state.locationId}
++                  onClick={() => this.applyQuickDatePreset("fullday")}
++                >
++                  {this.props.t("allDay")}
++                </Button>
++              </div>
++            </div>
+ 
+             {hint}
+ 
+@@ -2147,27 +2245,31 @@ class Search extends React.Component<Props, State> {
+               {this.props.t("bookingCreationDisabled")}
+             </Alert>
+ 
+-            <Form.Group className="d-flex margin-top-10">
+-              <div className="me-2">
++            <div className="search-step-card margin-top-10">
++              <div className="search-step-title">
++                <span className="search-step-index">3</span>
+                 <MapIcon
+                   title={this.props.t("map")}
+                   color={"#555"}
+-                  height="20px"
+-                  width="20px"
+-                />
+-              </div>
+-              <div className="ms-2 w-100">
+-                <Form.Check
+-                  disabled={!this.state.locationId}
+-                  type="switch"
+-                  checked={!this.state.listView}
+-                  onChange={() => this.toggleListView()}
+-                  label={this.props.t("map")}
+-                  aria-label={this.props.t("map")}
+-                  id="switch-control"
++                  height="18px"
++                  width="18px"
+                 />
++                <span>{this.props.t("map")}</span>
+               </div>
+-            </Form.Group>
++              <Form.Group className="d-flex">
++                <div className="w-100">
++                  <Form.Check
++                    disabled={!this.state.locationId}
++                    type="switch"
++                    checked={!this.state.listView}
++                    onChange={() => this.toggleListView()}
++                    label={this.props.t("map")}
++                    aria-label={this.props.t("map")}
++                    id="switch-control"
++                  />
++                </div>
++              </Form.Group>
++            </div>
+           </Form>
+         </div>
+       </div>
+diff --git a/ui/src/styles/Search.css b/ui/src/styles/Search.css
+index 6076c069..8353f951 100644
+--- a/ui/src/styles/Search.css
++++ b/ui/src/styles/Search.css
+@@ -87,6 +87,52 @@
+   display: none;
+ }
+ 
++.search-flow-form {
++  display: flex;
++  flex-direction: column;
++}
++
++.search-step-card {
++  border: 1px solid #dfe4ea;
++  border-radius: 10px;
++  padding: 10px;
++  background: #f8fafc;
++}
++
++.search-step-title {
++  display: flex;
++  align-items: center;
++  gap: 8px;
++  font-size: 0.85rem;
++  font-weight: 600;
++  color: #344054;
++  margin-bottom: 8px;
++  letter-spacing: 0.01em;
++}
++
++.search-step-index {
++  display: inline-flex;
++  align-items: center;
++  justify-content: center;
++  width: 20px;
++  height: 20px;
++  border-radius: 999px;
++  background: #1d4ed8;
++  color: #fff;
++  font-size: 0.75rem;
++  font-weight: 700;
++}
++
++.search-step-divider {
++  color: #98a2b3;
++}
++
++.search-quick-actions {
++  display: flex;
++  flex-wrap: wrap;
++  gap: 6px;
++}
++
+ .container-search-config .btn-outline-dark:hover {
+   background-color: #eee;
+ }
+-- 
+2.53.0
+
