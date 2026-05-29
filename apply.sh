@@ -6,8 +6,9 @@ PINNED_TAG="v1.99.2"
 PATCHES_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 usage() {
-  echo "Usage: $(basename "$0") [-m <manifest>] [-e <environment>] [-t <tag>] [-o <output-dir>]"
+  echo "Usage: $(basename "$0") [-c] [-m <manifest>] [-e <environment>] [-t <tag>] [-o <output-dir>]"
   echo ""
+  echo "  -c               Check mode: apply patches in a temporary checkout and remove it afterwards"
   echo "  -m <manifest>    Simple key=value manifest with environment tags"
   echo "  -e <environment>  Manifest environment to use (default: development)"
   echo "  -t <tag>         Upstream tag to clone (overrides manifest and default)"
@@ -21,9 +22,11 @@ MANIFEST=""
 ENVIRONMENT="development"
 OUTPUT_DIR=""
 TAG_EXPLICIT=false
+CHECK_MODE=false
 
-while getopts "m:e:t:o:h" opt; do
+while getopts "cm:e:t:o:h" opt; do
   case $opt in
+    c) CHECK_MODE=true ;;
     m) MANIFEST="$OPTARG" ;;
     e) ENVIRONMENT="$OPTARG" ;;
     t) TAG="$OPTARG" ; TAG_EXPLICIT=true ;;
@@ -65,7 +68,15 @@ if [[ -n "$MANIFEST" && "$TAG_EXPLICIT" == false ]]; then
   TAG="$manifest_tag"
 fi
 
-if [[ -n "$OUTPUT_DIR" ]]; then
+TEMP_DEST=""
+if [[ "$CHECK_MODE" == true && -z "$OUTPUT_DIR" ]]; then
+  TEMP_DEST="$(mktemp -d "${TMPDIR:-/tmp}/seatsurfing-patch-check.XXXXXX")"
+  DEST="${TEMP_DEST}/seatsurfing-${TAG}-patched"
+  cleanup() {
+    rm -rf "$TEMP_DEST"
+  }
+  trap cleanup EXIT
+elif [[ -n "$OUTPUT_DIR" ]]; then
   DEST="$OUTPUT_DIR"
 else
   DEST="$(pwd)/seatsurfing-${TAG}-patched"
@@ -82,6 +93,10 @@ echo "Cloning seatsurfing ${TAG}..."
 git clone --branch "${TAG}" "${UPSTREAM}" "${DEST}"
 
 cd "${DEST}"
+if [[ "$CHECK_MODE" == true ]]; then
+  git config user.name "Seatsurfing Patch CI"
+  git config user.email "seatsurfing-patch-ci@users.noreply.github.com"
+fi
 
 apply_dir() {
   local section="$1"
@@ -120,3 +135,6 @@ if [[ -n "$MANIFEST" ]]; then
   echo "Manifest: ${MANIFEST} (${ENVIRONMENT})"
 fi
 echo "Upstream tag: ${TAG}"
+if [[ "$CHECK_MODE" == true ]]; then
+  echo "Patch check passed."
+fi
